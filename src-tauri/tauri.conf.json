@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FastTask",
+  "version": "0.1.0",
+  "identifier": "com.dailytask.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "FastTask",
+        "width": 480,
+        "height": 720,
+        "minWidth": 380,
+        "minHeight": 500,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon_16x16.png",
+      "icons/icon_32x32.png",
+      "icons/icon_128x128.png",
+      "icons/icon_256x256.png",
+      "icons/icon_512x512.png"
+    ]
+  }
+}
