@@ -1,7 +1,7 @@
 [tools]
 node = "22"
 rust = "1.88"
-pnpm = "9"
+"npm:pnpm" = "9"
 
 [env]
 _.path = ["./node_modules/.bin"]
