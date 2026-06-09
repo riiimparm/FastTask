@@ -1,7 +1,46 @@
-# Tauri + React + Typescript
+# FastTask
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+毎日のタスクをサクッと管理できる、macOS向けのシンプルなタスク管理アプリです。
 
-## Recommended IDE Setup
+## できること
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- タスクをすばやく入力・管理
+- プロジェクトごとにタスクをグループ化して表示
+- 今日完了したタスクをMarkdown形式でクリップボードにコピー
+- タグで自動分類
+
+## 使い方
+
+1. テキストボックスにタスク名を入力して `Enter`
+2. チェックボックスをクリックで完了/未完了を切り替え
+3. 「今日の完了をコピー」ボタンで日報作成に活用
+
+**プロジェクト名をつけるには:**  
+`:ProjectName タスク名` のように、先頭に `:プロジェクト名 ` と入力します。
+
+## セットアップ
+
+```bash
+# 依存パッケージをインストール
+pnpm install
+
+# 開発用に起動
+pnpm tauri dev
+
+# ビルド
+pnpm tauri build
+```
+
+## インストール時の注意（macOS）
+
+DMGからインストール後に「壊れている」と表示された場合は、ターミナルで以下を実行してください：
+
+```bash
+xattr -cr /Applications/FastTask.app
+```
+
+## 動作環境
+
+- macOS
+- Node.js + pnpm
+- Rust（Tauriが必要とします）
