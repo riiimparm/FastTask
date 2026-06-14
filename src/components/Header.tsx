@@ -78,8 +78,8 @@ export function Header({ onOpenSettings }: Props) {
             onClick={() => setShowMenu((v) => !v)}
             className={`text-[12px] px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
               isCopied
-                ? "bg-ok text-white"
-                : "bg-accent text-white hover:opacity-90"
+                ? "bg-[#111] text-[#F5F5F5] dark:bg-[#E0E0E0] dark:text-[#111]"
+                : "bg-black/8 text-ink border border-black/10 hover:bg-black/15 dark:bg-[#E0E0E0] dark:text-[#111] dark:border-transparent dark:hover:bg-[#F5F5F5]"
             }`}
           >
             {isCopied ? (

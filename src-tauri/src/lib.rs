@@ -1,5 +1,31 @@
 use std::fs;
 use tauri::Manager;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+
+#[tauri::command]
+async fn register_focus_shortcut(app: tauri::AppHandle, shortcut_str: String) -> Result<(), String> {
+    let shortcut: tauri_plugin_global_shortcut::Shortcut = shortcut_str
+        .parse()
+        .map_err(|e| format!("invalid shortcut: {e}"))?;
+    let _ = app.global_shortcut().unregister_all();
+    app.global_shortcut()
+        .on_shortcut(shortcut, move |app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+            }
+        })
+        .map_err(|e| format!("register error: {e}"))
+}
+
+#[tauri::command]
+async fn unregister_focus_shortcut(app: tauri::AppHandle) -> Result<(), String> {
+    app.global_shortcut()
+        .unregister_all()
+        .map_err(|e| format!("unregister error: {e}"))
+}
 
 #[tauri::command]
 async fn load_data(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
@@ -36,10 +62,16 @@ async fn save_data(app: tauri::AppHandle, data: serde_json::Value) -> Result<(),
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![load_data, save_data])
+        .invoke_handler(tauri::generate_handler![
+            load_data,
+            save_data,
+            register_focus_shortcut,
+            unregister_focus_shortcut
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

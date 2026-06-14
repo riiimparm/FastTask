@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DayPicker } from "react-day-picker";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
 import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
-import { projectColor, todayIso } from "../utils/project";
-import { formatTaskLine } from "../utils/copy";
+import { todayIso } from "../utils/project";
 import { t } from "../i18n";
 
 interface Props {
@@ -26,6 +24,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   const setToast = useStore((s) => s.setToast);
   const lang = settings.language;
   const grouping = settings.groupingEnabled;
+  const showDueDate = settings.showDueDate ?? false;
 
   const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId } = useUiContext();
   const isSelected = selectedTaskId === task.id;
@@ -38,9 +37,6 @@ export function TaskItem({ task, draggable = true }: Props) {
     transition: sortable.transition,
     opacity: sortable.isDragging ? 0.5 : 1,
   };
-  if (task.projectName) {
-    (style as Record<string, string>)["--project-color"] = projectColor(task.projectName);
-  }
 
   const [completing, setCompleting] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -57,8 +53,6 @@ export function TaskItem({ task, draggable = true }: Props) {
   const [showUrl, setShowUrl] = useState(false);
   const [showDate, setShowDate] = useState(false);
   const [urlInput, setUrlInput] = useState(task.url ?? "");
-  const [copied, setCopied] = useState(false);
-  const [copyFlash, setCopyFlash] = useState(0);
 
   const tagsBtn = useRef<HTMLButtonElement | null>(null);
   const urlBtn = useRef<HTMLButtonElement | null>(null);
@@ -70,23 +64,16 @@ export function TaskItem({ task, draggable = true }: Props) {
     ? task.title.slice(task.projectName.length + 2)
     : task.title;
 
-  const PARTICLES = [
-    { tx: 0,   ty: -24, color: "#34C759" },
-    { tx: 17,  ty: -17, color: "#007AFF" },
-    { tx: 24,  ty:   0, color: "#FF9500" },
-    { tx: 17,  ty:  17, color: "#FF3B30" },
-    { tx: 0,   ty:  24, color: "#AF52DE" },
-    { tx: -17, ty:  17, color: "#FFCC00" },
-    { tx: -24, ty:   0, color: "#FF2D55" },
-    { tx: -17, ty: -17, color: "#34C759" },
-  ];
 
   function handleToggle() {
     if (task.status === "todo") {
       setCompleting(true);
-      setTimeout(() => setCompleting(false), 700);
+      setTimeout(() => {
+        toggleTask(task.id);
+      }, 380);
+    } else {
+      toggleTask(task.id);
     }
-    toggleTask(task.id);
   }
 
   function commitEdit() {
@@ -116,17 +103,6 @@ export function TaskItem({ task, draggable = true }: Props) {
     }
   }
 
-  async function copyOne() {
-    const md = formatTaskLine(task, tagsById, settings.copyIncludeUrl);
-    try {
-      await writeText(md);
-      setCopied(true);
-      setCopyFlash((f) => f + 1);
-      setTimeout(() => setCopied(false), 1500);
-    } catch (e) {
-      setToast(`${t(lang, "copyFailed")}: ${e}`);
-    }
-  }
 
   const due = task.dueDate;
   const dueDate = due ? new Date(due + "T00:00:00") : undefined;
@@ -147,10 +123,11 @@ export function TaskItem({ task, draggable = true }: Props) {
       onClick={() => setSelectedTaskId(task.id)}
       className={`group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
         border-l-[3px]
-        ${isSelected && !isReorderMode ? "border-accent bg-accent/10" : ""}
-        ${isBulkSelected ? "border-accent bg-accent/15" : ""}
-        ${isFocused && !isSelected ? "border-accent" : ""}
-        ${isReorderMode && isSelected ? "border-warn bg-warn/10" : ""}
+        ${completing ? "task-sweep-left" : ""}
+        ${isSelected && !isReorderMode ? "border-black/30 dark:border-white/50 task-selected-bg" : ""}
+        ${isBulkSelected ? "border-black/20 dark:border-white/35 task-bulk-bg" : ""}
+        ${isFocused && !isSelected ? "border-black/25 dark:border-white/40" : ""}
+        ${isReorderMode && isSelected ? "border-black/25 dark:border-white/35 task-bulk-bg" : ""}
         ${!isSelected && !isBulkSelected && !isFocused ? "border-transparent" : ""}
       `}
     >
@@ -172,10 +149,10 @@ export function TaskItem({ task, draggable = true }: Props) {
       <div className="relative flex-shrink-0">
         <button
           onClick={handleToggle}
-          className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-all ${completing ? "check-pop" : ""} ${
+          className={`w-[17px] h-[17px] rounded-[3px] border-2 flex items-center justify-center transition-all ${
             task.status === "done"
-              ? "bg-ok border-ok text-white"
-              : "border-black/25 hover:border-accent"
+              ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
+              : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
           }`}
         >
           {task.status === "done" && (
@@ -184,25 +161,6 @@ export function TaskItem({ task, draggable = true }: Props) {
             </svg>
           )}
         </button>
-        {completing && PARTICLES.map((p, i) => (
-          <span
-            key={i}
-            className="absolute rounded-full pointer-events-none"
-            style={{
-              width: 5,
-              height: 5,
-              top: "50%",
-              left: "50%",
-              marginTop: -2.5,
-              marginLeft: -2.5,
-              background: p.color,
-              animation: "particle-burst 0.55s ease-out forwards",
-              animationDelay: `${i * 15}ms`,
-              "--tx": `${p.tx}px`,
-              "--ty": `${p.ty}px`,
-            } as React.CSSProperties}
-          />
-        ))}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -231,7 +189,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : ""}`}
           >
             {task.isMinimum && (
-              <span className="text-warn text-[10px] shrink-0" title={lang === "ja" ? "今日の最低限" : "Min. task"}>★</span>
+              <span className="text-subink text-[10px] shrink-0" title={lang === "ja" ? "今日の最低限" : "Min. task"}>★</span>
             )}
             {task.projectName && !grouping && (
               <span className="opacity-40">:{task.projectName} </span>
@@ -248,11 +206,7 @@ export function TaskItem({ task, draggable = true }: Props) {
           return (
             <span
               key={id}
-              className="text-[10px] px-1.5 py-0.5 rounded-full"
-              style={{
-                background: `color-mix(in srgb, ${tag.color} 12%, transparent)`,
-                color: tag.color,
-              }}
+              className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/8 text-subink dark:bg-white/10"
             >
               {tag.name}
             </span>
@@ -272,7 +226,7 @@ export function TaskItem({ task, draggable = true }: Props) {
           </button>
         )}
 
-        {due && (
+        {showDueDate && due && (
           <span className={`text-[11px] ${dueClass}`}>
             {dueDate!.getMonth() + 1}/{dueDate!.getDate()}
           </span>
@@ -305,8 +259,7 @@ export function TaskItem({ task, draggable = true }: Props) {
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-black/5 text-[12px]"
                     >
                       <span
-                        className="w-3 h-3 rounded"
-                        style={{ background: tag.color }}
+                        className="w-3 h-3 rounded bg-black/20 dark:bg-white/20"
                       />
                       <span className="flex-1 text-left">{tag.name}</span>
                       {active && (
@@ -367,6 +320,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             </Popover>
           </div>
 
+          {showDueDate && (
           <div className="relative">
             <button
               ref={dateBtn}
@@ -406,24 +360,7 @@ export function TaskItem({ task, draggable = true }: Props) {
               )}
             </Popover>
           </div>
-
-          <button
-            key={copyFlash}
-            onClick={copyOne}
-            className={`w-6 h-6 rounded hover:bg-black/5 flex items-center justify-center transition-colors ${copied ? "text-ok copy-flash" : "text-subink"}`}
-            title={t(lang, "titleCopy")}
-          >
-            {copied ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-              </svg>
-            )}
-          </button>
+          )}
 
           <button
             onClick={() => deleteTask(task.id)}
