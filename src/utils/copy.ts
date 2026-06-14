@@ -52,31 +52,70 @@ export function buildTodayCompletedMarkdown(
     const lines = done.map((t) => `- ${formatTaskLine(t, tagsById, includeUrl)}`);
     return header + lines.join("\n") + "\n";
   }
+  return buildGroupedMarkdown(done, tagsById, includeUrl, lang, header, "-");
+}
 
+function buildGroupedMarkdown(
+  done: Task[],
+  tagsById: Map<string, Tag>,
+  includeUrl: boolean,
+  lang: Language,
+  header: string,
+  prefix: string,
+): string {
   const groups = new Map<string, Task[]>();
   for (const t of done) {
     const key = t.projectName ?? "__none__";
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(t);
   }
-
   const ordered: string[] = [];
   const keys = Array.from(groups.keys()).filter((k) => k !== "__none__").sort();
   for (const k of keys) {
     ordered.push(`### ${k}`);
-    for (const t of groups.get(k)!) {
-      ordered.push(`- ${formatTaskLine(t, tagsById, includeUrl)}`);
-    }
+    for (const t of groups.get(k)!) ordered.push(`${prefix} ${formatTaskLine(t, tagsById, includeUrl)}`);
     ordered.push("");
   }
   if (groups.has("__none__")) {
     ordered.push(`### ${tr(lang, "uncategorized")}`);
-    for (const t of groups.get("__none__")!) {
-      ordered.push(`- ${formatTaskLine(t, tagsById, includeUrl)}`);
-    }
+    for (const t of groups.get("__none__")!) ordered.push(`${prefix} ${formatTaskLine(t, tagsById, includeUrl)}`);
     ordered.push("");
   }
   return header + ordered.join("\n").trimEnd() + "\n";
+}
+
+export function buildAllCompletedMarkdown(
+  tasks: Task[],
+  tags: Tag[],
+  includeUrl: boolean,
+  grouping: boolean,
+  lang: Language = "ja",
+): string {
+  const done = tasks.filter((t) => t.status === "done");
+  const tagsById = new Map(tags.map((t) => [t.id, t]));
+  const header = `## ${tr(lang, "allCompletedHeading")}\n\n`;
+  if (!grouping) {
+    if (done.length === 0) return header;
+    return header + done.map((t) => `- ${formatTaskLine(t, tagsById, includeUrl)}`).join("\n") + "\n";
+  }
+  return buildGroupedMarkdown(done, tagsById, includeUrl, lang, header, "-");
+}
+
+export function buildTodoMarkdown(
+  tasks: Task[],
+  tags: Tag[],
+  includeUrl: boolean,
+  grouping: boolean,
+  lang: Language = "ja",
+): string {
+  const todo = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
+  const tagsById = new Map(tags.map((t) => [t.id, t]));
+  const header = `## ${tr(lang, "todoHeading")}\n\n`;
+  if (!grouping) {
+    if (todo.length === 0) return header;
+    return header + todo.map((t) => `- [ ] ${formatTaskLine(t, tagsById, includeUrl)}`).join("\n") + "\n";
+  }
+  return buildGroupedMarkdown(todo, tagsById, includeUrl, lang, header, "- [ ]");
 }
 
 export function countTodayCompleted(tasks: Task[]): number {
@@ -85,4 +124,12 @@ export function countTodayCompleted(tasks: Task[]): number {
     (t) =>
       t.status === "done" && t.completedAt && isSameDay(t.completedAt, today),
   ).length;
+}
+
+export function countAllCompleted(tasks: Task[]): number {
+  return tasks.filter((t) => t.status === "done").length;
+}
+
+export function countTodo(tasks: Task[]): number {
+  return tasks.filter((t) => t.status === "todo").length;
 }

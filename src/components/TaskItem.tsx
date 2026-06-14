@@ -24,6 +24,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   const deleteTask = useStore((s) => s.deleteTask);
   const setToast = useStore((s) => s.setToast);
   const lang = settings.language;
+  const grouping = settings.groupingEnabled;
 
   const sortable = useSortable({ id: task.id, disabled: !draggable });
   const style: React.CSSProperties = {
@@ -35,6 +36,7 @@ export function TaskItem({ task, draggable = true }: Props) {
     (style as Record<string, string>)["--project-color"] = projectColor(task.projectName);
   }
 
+  const [completing, setCompleting] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.title);
   const editRef = useRef<HTMLInputElement | null>(null);
@@ -50,6 +52,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   const [showDate, setShowDate] = useState(false);
   const [urlInput, setUrlInput] = useState(task.url ?? "");
   const [copied, setCopied] = useState(false);
+  const [copyFlash, setCopyFlash] = useState(0);
 
   const tagsBtn = useRef<HTMLButtonElement | null>(null);
   const urlBtn = useRef<HTMLButtonElement | null>(null);
@@ -60,6 +63,25 @@ export function TaskItem({ task, draggable = true }: Props) {
   const body = task.projectName && task.title.startsWith(`:${task.projectName} `)
     ? task.title.slice(task.projectName.length + 2)
     : task.title;
+
+  const PARTICLES = [
+    { tx: 0,   ty: -24, color: "#34C759" },
+    { tx: 17,  ty: -17, color: "#007AFF" },
+    { tx: 24,  ty:   0, color: "#FF9500" },
+    { tx: 17,  ty:  17, color: "#FF3B30" },
+    { tx: 0,   ty:  24, color: "#AF52DE" },
+    { tx: -17, ty:  17, color: "#FFCC00" },
+    { tx: -24, ty:   0, color: "#FF2D55" },
+    { tx: -17, ty: -17, color: "#34C759" },
+  ];
+
+  function handleToggle() {
+    if (task.status === "todo") {
+      setCompleting(true);
+      setTimeout(() => setCompleting(false), 700);
+    }
+    toggleTask(task.id);
+  }
 
   function commitEdit() {
     if (editValue.trim()) updateTask(task.id, { title: editValue.trim() });
@@ -93,6 +115,7 @@ export function TaskItem({ task, draggable = true }: Props) {
     try {
       await writeText(md);
       setCopied(true);
+      setCopyFlash((f) => f + 1);
       setTimeout(() => setCopied(false), 1500);
     } catch (e) {
       setToast(`${t(lang, "copyFailed")}: ${e}`);
@@ -132,20 +155,41 @@ export function TaskItem({ task, draggable = true }: Props) {
         </button>
       )}
 
-      <button
-        onClick={() => toggleTask(task.id)}
-        className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-all ${
-          task.status === "done"
-            ? "bg-ok border-ok text-white"
-            : "border-black/25 hover:border-accent"
-        }`}
-      >
-        {task.status === "done" && (
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-        )}
-      </button>
+      <div className="relative flex-shrink-0">
+        <button
+          onClick={handleToggle}
+          className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-all ${completing ? "check-pop" : ""} ${
+            task.status === "done"
+              ? "bg-ok border-ok text-white"
+              : "border-black/25 hover:border-accent"
+          }`}
+        >
+          {task.status === "done" && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          )}
+        </button>
+        {completing && PARTICLES.map((p, i) => (
+          <span
+            key={i}
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              width: 5,
+              height: 5,
+              top: "50%",
+              left: "50%",
+              marginTop: -2.5,
+              marginLeft: -2.5,
+              background: p.color,
+              animation: "particle-burst 0.55s ease-out forwards",
+              animationDelay: `${i * 15}ms`,
+              "--tx": `${p.tx}px`,
+              "--ty": `${p.ty}px`,
+            } as React.CSSProperties}
+          />
+        ))}
+      </div>
 
       <div className="flex-1 min-w-0">
         {editing ? (
@@ -162,7 +206,7 @@ export function TaskItem({ task, draggable = true }: Props) {
                 setEditing(false);
               }
             }}
-            className="w-full px-1 py-0.5 rounded bg-white border border-accent/40 outline-none text-[14px]"
+            className="w-full px-1 py-0.5 rounded border border-accent/40 outline-none text-[14px]"
           />
         ) : (
           <div
@@ -172,7 +216,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             }}
             className={`truncate cursor-text text-[14px] ${task.status === "done" ? "line-through text-subink" : ""}`}
           >
-            {task.projectName && (
+            {task.projectName && !grouping && (
               <span className="opacity-40">:{task.projectName} </span>
             )}
             {body || <span className="text-subink italic">{t(lang, "untitled")}</span>}
@@ -347,8 +391,9 @@ export function TaskItem({ task, draggable = true }: Props) {
           </div>
 
           <button
+            key={copyFlash}
             onClick={copyOne}
-            className={`w-6 h-6 rounded hover:bg-black/5 flex items-center justify-center ${copied ? "text-ok" : "text-subink"}`}
+            className={`w-6 h-6 rounded hover:bg-black/5 flex items-center justify-center transition-colors ${copied ? "text-ok copy-flash" : "text-subink"}`}
             title={t(lang, "titleCopy")}
           >
             {copied ? (

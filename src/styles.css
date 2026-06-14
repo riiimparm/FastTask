@@ -100,6 +100,8 @@ html.dark .bg-black\/30 { background-color: rgba(0,0,0,0.6) !important; }
 html.dark input,
 html.dark textarea {
   color: #F5F5F7;
+  background-color: #2C2C2E;
+  border-color: rgba(255,255,255,0.10);
 }
 html.dark input::placeholder,
 html.dark textarea::placeholder {
@@ -127,6 +129,26 @@ html.dark textarea::placeholder {
   to { opacity: 1; transform: translateY(0); }
 }
 .fade-in { animation: fade-in 120ms ease-out; }
+
+@keyframes particle-burst {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+@keyframes check-pop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.45); }
+  65%  { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+.check-pop { animation: check-pop 0.35s ease-out; }
+
+@keyframes copy-flash {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.7); filter: brightness(1.4); }
+  65%  { transform: scale(0.85); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+.copy-flash { animation: copy-flash 0.38s ease-out; }
 
 .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }

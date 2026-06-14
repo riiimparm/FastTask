@@ -53,6 +53,11 @@ const dict = {
     titleSetDue: "期限日を設定",
     loadFailed: "読み込みに失敗しました",
     openUrlFailed: "URLを開けませんでした",
+    copyAllCompleted: "全完了をコピー",
+    copyTodo: "未完了をコピー",
+    allCompletedHeading: "全完了タスク",
+    todoHeading: "未完了タスク",
+    urlDetected: "URL自動付与",
   },
   en: {
     appTitle: "FastTask",
@@ -106,6 +111,11 @@ const dict = {
     titleSetDue: "Set due date",
     loadFailed: "Failed to load",
     openUrlFailed: "Failed to open URL",
+    copyAllCompleted: "Copy All Completed",
+    copyTodo: "Copy Todo Tasks",
+    allCompletedHeading: "All Completed Tasks",
+    todoHeading: "Todo Tasks",
+    urlDetected: "URL auto-linked",
   },
 } as const;
 

@@ -88,6 +88,10 @@ export function TaskInput() {
   }
 
   const { projectName: parsedProject } = parseProjectFromInput(value);
+  const detectedUrl = useMemo(() => {
+    const m = value.match(/https?:\/\/\S+/);
+    return m ? m[0] : null;
+  }, [value]);
 
   return (
     <div className="px-4 py-3 border-b border-black/5">
@@ -99,7 +103,7 @@ export function TaskInput() {
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={t(lang, "placeholder")}
-            className="w-full px-3 py-2 rounded-[10px] bg-white border border-black/10 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
+            className="w-full px-3 py-2 rounded-[10px] border border-black/10 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
           />
           {projectCandidates.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 glass rounded-card shadow-cardHover py-1 z-40 fade-in">
@@ -125,7 +129,7 @@ export function TaskInput() {
           <button
             ref={dateBtnRef}
             onClick={() => setShowDate((v) => !v)}
-            className={`h-9 px-2 rounded-[10px] border border-black/10 flex items-center gap-1 text-[12px] ${due ? "bg-accent/10 text-accent border-accent/30" : "bg-white text-subink hover:bg-black/5"}`}
+            className={`h-9 px-2 rounded-[10px] border border-black/10 flex items-center gap-1 text-[12px] ${due ? "bg-accent/10 text-accent border-accent/30" : "text-subink hover:bg-black/5"}`}
             title={t(lang, "titleSetDue")}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -178,6 +182,15 @@ export function TaskInput() {
       {parsedProject && (
         <div className="text-[11px] text-subink mt-1 pl-1">
           {t(lang, "project")}: <span className="text-accent">{parsedProject}</span>
+        </div>
+      )}
+      {detectedUrl && (
+        <div className="text-[11px] text-accent mt-0.5 pl-1 flex items-center gap-1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          {t(lang, "urlDetected")}: <span className="opacity-70 truncate max-w-[260px] inline-block align-bottom">{detectedUrl}</span>
         </div>
       )}
     </div>

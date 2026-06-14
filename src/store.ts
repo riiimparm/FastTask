@@ -73,6 +73,14 @@ function scheduleSave(get: () => State) {
   }, 150);
 }
 
+function extractUrl(input: string): { text: string; url?: string } {
+  const m = input.match(/https?:\/\/\S+/);
+  if (!m) return { text: input };
+  const url = m[0];
+  const text = input.replace(url, "").replace(/\s{2,}/g, " ").trim();
+  return { text, url };
+}
+
 function autoTagsFor(body: string, tags: Tag[]): string[] {
   const lower = body.toLowerCase();
   const matched: string[] = [];
@@ -135,7 +143,8 @@ export const useStore = create<State>((set, get) => ({
   addTask(rawInput, dueDate) {
     const trimmed = rawInput.trim();
     if (!trimmed) return;
-    const { projectName, body } = parseProjectFromInput(trimmed);
+    const { text: withoutUrl, url: autoUrl } = extractUrl(trimmed);
+    const { projectName, body } = parseProjectFromInput(withoutUrl);
     const title = projectName ? `:${projectName} ${body}` : body;
     const titleForTagMatch = body || title;
     const now = new Date().toISOString();
@@ -146,7 +155,7 @@ export const useStore = create<State>((set, get) => ({
       projectName,
       status: "todo",
       tags: autoTagsFor(titleForTagMatch, get().tags),
-      url: undefined,
+      url: autoUrl,
       dueDate,
       createdAt: now,
       order: nextOrder(todoTasks),
@@ -235,11 +244,24 @@ export const useStore = create<State>((set, get) => ({
 
   upsertTag(tag) {
     const exists = get().tags.some((t) => t.id === tag.id);
-    set({
-      tags: exists
-        ? get().tags.map((t) => (t.id === tag.id ? tag : t))
-        : [...get().tags, tag],
+    const nextTags = exists
+      ? get().tags.map((t) => (t.id === tag.id ? tag : t))
+      : [...get().tags, tag];
+
+    const updatedTasks = get().tasks.map((task) => {
+      const titleForMatch =
+        task.projectName && task.title.startsWith(`:${task.projectName} `)
+          ? task.title.slice(task.projectName.length + 2)
+          : task.title;
+      const lower = titleForMatch.toLowerCase();
+      const matches = tag.keywords.some((kw) => kw && lower.includes(kw.toLowerCase()));
+      if (matches && !task.tags.includes(tag.id)) {
+        return { ...task, tags: [...task.tags, tag.id] };
+      }
+      return task;
     });
+
+    set({ tags: nextTags, tasks: updatedTasks });
     scheduleSave(get);
   },
 
