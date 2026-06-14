@@ -58,6 +58,10 @@ const dict = {
     allCompletedHeading: "全完了タスク",
     todoHeading: "未完了タスク",
     urlDetected: "URL自動付与",
+    shortcuts: "ショートカット",
+    minimumTask: "今日の最低限",
+    focusMode: "フォーカスモード",
+    undone: "元に戻しました",
   },
   en: {
     appTitle: "FastTask",
@@ -116,6 +120,10 @@ const dict = {
     allCompletedHeading: "All Completed Tasks",
     todoHeading: "Todo Tasks",
     urlDetected: "URL auto-linked",
+    shortcuts: "Shortcuts",
+    minimumTask: "Min. task",
+    focusMode: "Focus mode",
+    undone: "Undone",
   },
 } as const;
 

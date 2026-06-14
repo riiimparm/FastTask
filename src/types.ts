@@ -11,6 +11,7 @@ export interface Task {
   createdAt: string;
   completedAt?: string;
   order: number;
+  isMinimum?: boolean;
 }
 
 export interface Tag {

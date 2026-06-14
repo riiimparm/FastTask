@@ -42,6 +42,7 @@ interface State {
   settings: Settings;
   loaded: boolean;
   toast?: string;
+  undoStack: Task[][];
   init: () => Promise<void>;
   addTask: (rawInput: string, dueDate?: string) => void;
   toggleTask: (id: string) => void;
@@ -53,6 +54,8 @@ interface State {
   deleteTag: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setToast: (msg?: string) => void;
+  pushUndo: () => void;
+  undo: () => void;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -107,6 +110,21 @@ export const useStore = create<State>((set, get) => ({
   settings: { ...defaultSettings },
   loaded: false,
   toast: undefined,
+  undoStack: [],
+
+  pushUndo() {
+    const stack = get().undoStack;
+    const snapshot = get().tasks.map((t) => ({ ...t }));
+    set({ undoStack: [...stack.slice(-9), snapshot] });
+  },
+
+  undo() {
+    const stack = get().undoStack;
+    if (stack.length === 0) return;
+    const prev = stack[stack.length - 1];
+    set({ tasks: prev, undoStack: stack.slice(0, -1) });
+    scheduleSave(get);
+  },
 
   async init() {
     try {
@@ -143,6 +161,7 @@ export const useStore = create<State>((set, get) => ({
   addTask(rawInput, dueDate) {
     const trimmed = rawInput.trim();
     if (!trimmed) return;
+    get().pushUndo();
     const { text: withoutUrl, url: autoUrl } = extractUrl(trimmed);
     const { projectName, body } = parseProjectFromInput(withoutUrl);
     const title = projectName ? `:${projectName} ${body}` : body;
@@ -165,6 +184,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   toggleTask(id) {
+    get().pushUndo();
     const now = new Date().toISOString();
     set({
       tasks: get().tasks.map((t) =>
@@ -195,11 +215,13 @@ export const useStore = create<State>((set, get) => ({
   },
 
   deleteTask(id) {
+    get().pushUndo();
     set({ tasks: get().tasks.filter((t) => t.id !== id) });
     scheduleSave(get);
   },
 
   reorderTasks(idsInNewOrder) {
+    get().pushUndo();
     const byId = new Map(get().tasks.map((t) => [t.id, t]));
     const others = get().tasks.filter((t) => !idsInNewOrder.includes(t.id));
     const reordered = idsInNewOrder

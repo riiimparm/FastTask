@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useStore } from "../store";
+import { useUiContext } from "../context/UiContext";
 import { Task } from "../types";
 import { TaskItem } from "./TaskItem";
 import { projectColor } from "../utils/project";
@@ -108,10 +109,17 @@ export function TaskList() {
   const reorderTasks = useStore((s) => s.reorderTasks);
   const reorderProjectSections = useStore((s) => s.reorderProjectSections);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const { focusedTaskId } = useUiContext();
 
   const todoTasks = useMemo(
     () => tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order),
     [tasks],
+  );
+
+  // フォーカスモード時はそのタスクのみ表示
+  const displayTasks = useMemo(
+    () => focusedTaskId ? todoTasks.filter((t) => t.id === focusedTaskId) : todoTasks,
+    [todoTasks, focusedTaskId],
   );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -130,10 +138,10 @@ export function TaskList() {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={todoTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-0.5">
-            {todoTasks.length === 0 && (
+            {displayTasks.length === 0 && (
               <div className="text-center text-subink text-[12px] py-8">{t(lang, "noTasks")}</div>
             )}
-            {todoTasks.map((t) => (
+            {displayTasks.map((t) => (
               <TaskItem key={t.id} task={t} />
             ))}
           </div>
@@ -145,7 +153,7 @@ export function TaskList() {
   // grouping ON
   const sectionsMap = new Map<string, Task[]>();
   const sectionOrder: string[] = [];
-  for (const t of todoTasks) {
+  for (const t of displayTasks) {
     const key = t.projectName ?? NONE_KEY;
     if (!sectionsMap.has(key)) {
       sectionsMap.set(key, []);
@@ -175,8 +183,8 @@ export function TaskList() {
         items={sectionOrder.map((k) => `section:${k}`)}
         strategy={verticalListSortingStrategy}
       >
-        {todoTasks.length === 0 && (
-          <div className="text-center text-subink text-[12px] py-8">タスクはありません</div>
+        {displayTasks.length === 0 && (
+          <div className="text-center text-subink text-[12px] py-8">{t(lang, "noTasks")}</div>
         )}
         {sectionOrder.map((key) => (
           <ProjectSection

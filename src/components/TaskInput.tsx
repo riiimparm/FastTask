@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { useStore } from "../store";
+import { useUiContext } from "../context/UiContext";
 import { Popover } from "./Popover";
 import { parseProjectFromInput } from "../utils/project";
 import { t } from "../i18n";
@@ -8,6 +9,7 @@ import { t } from "../i18n";
 export function TaskInput() {
   const addTask = useStore((s) => s.addTask);
   const tasks = useStore((s) => s.tasks);
+  const tags = useStore((s) => s.tags);
   const lang = useStore((s) => s.settings.language);
   const [value, setValue] = useState("");
   const [due, setDue] = useState<Date | undefined>(undefined);
@@ -15,6 +17,13 @@ export function TaskInput() {
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dateBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  const { mainInputRef, setSelectedTaskId } = useUiContext();
+
+  // mainInputRefとinputRefを同期
+  useEffect(() => {
+    mainInputRef.current = inputRef.current;
+  });
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -30,8 +39,8 @@ export function TaskInput() {
 
   const projectCandidates = useMemo(() => {
     const set = new Set<string>();
-    for (const t of tasks) {
-      if (t.projectName) set.add(t.projectName);
+    for (const tk of tasks) {
+      if (tk.projectName) set.add(tk.projectName);
     }
     const all = Array.from(set);
     if (projectMatch === null) return [];
@@ -40,6 +49,16 @@ export function TaskInput() {
       .filter((p) => p.toLowerCase().startsWith(q))
       .slice(0, 6);
   }, [tasks, projectMatch]);
+
+  // タグヒント: 入力中のbody部分にマッチするタグを表示
+  const { body: inputBody } = useMemo(() => parseProjectFromInput(value), [value]);
+  const matchedTags = useMemo(() => {
+    if (!inputBody.trim()) return [];
+    const lower = inputBody.toLowerCase();
+    return tags.filter((tag) =>
+      tag.keywords.some((kw) => kw && lower.includes(kw.toLowerCase())),
+    );
+  }, [inputBody, tags]);
 
   useEffect(() => {
     setHighlight(0);
@@ -85,6 +104,17 @@ export function TaskInput() {
         return;
       }
     }
+    // Tabでリストにフォーカス移動（補完候補がない場合）
+    if (e.key === "Tab" && projectCandidates.length === 0) {
+      e.preventDefault();
+      inputRef.current?.blur();
+      // todoタスクの先頭を選択
+      const todoTasks = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
+      if (todoTasks.length > 0) {
+        setSelectedTaskId(todoTasks[0].id);
+      }
+      return;
+    }
   }
 
   const { projectName: parsedProject } = parseProjectFromInput(value);
@@ -99,6 +129,7 @@ export function TaskInput() {
         <div className="flex-1 relative">
           <input
             ref={inputRef}
+            data-main-input
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={onKeyDown}
@@ -179,9 +210,26 @@ export function TaskInput() {
           </svg>
         </button>
       </div>
-      {parsedProject && (
-        <div className="text-[11px] text-subink mt-1 pl-1">
-          {t(lang, "project")}: <span className="text-accent">{parsedProject}</span>
+      {/* プロジェクト表示とタグヒント */}
+      {(parsedProject || matchedTags.length > 0) && (
+        <div className="flex items-center gap-2 mt-1 pl-1 flex-wrap">
+          {parsedProject && (
+            <span className="text-[11px] text-subink">
+              {t(lang, "project")}: <span className="text-accent">{parsedProject}</span>
+            </span>
+          )}
+          {matchedTags.map((tag) => (
+            <span
+              key={tag.id}
+              className="text-[10px] px-1.5 py-0.5 rounded-full"
+              style={{
+                background: `color-mix(in srgb, ${tag.color} 12%, transparent)`,
+                color: tag.color,
+              }}
+            >
+              {tag.name}
+            </span>
+          ))}
         </div>
       )}
       {detectedUrl && (

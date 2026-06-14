@@ -5,6 +5,7 @@ import { DayPicker } from "react-day-picker";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useStore } from "../store";
+import { useUiContext } from "../context/UiContext";
 import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
 import { projectColor, todayIso } from "../utils/project";
@@ -25,6 +26,11 @@ export function TaskItem({ task, draggable = true }: Props) {
   const setToast = useStore((s) => s.setToast);
   const lang = settings.language;
   const grouping = settings.groupingEnabled;
+
+  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId } = useUiContext();
+  const isSelected = selectedTaskId === task.id;
+  const isFocused = focusedTaskId === task.id;
+  const isBulkSelected = bulkSelected.has(task.id);
 
   const sortable = useSortable({ id: task.id, disabled: !draggable });
   const style: React.CSSProperties = {
@@ -138,7 +144,13 @@ export function TaskItem({ task, draggable = true }: Props) {
       ref={sortable.setNodeRef}
       style={style}
       data-project={task.projectName || undefined}
-      className={`group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2`}
+      onClick={() => setSelectedTaskId(task.id)}
+      className={`group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all
+        ${isSelected ? "ring-2 ring-accent/40 rounded-md bg-accent/5" : ""}
+        ${isBulkSelected ? "ring-2 ring-accent/60 rounded-md bg-accent/10" : ""}
+        ${isFocused && !isSelected ? "ring-2 ring-accent rounded-md" : ""}
+        ${isReorderMode && isSelected ? "ring-2 ring-warn/60 rounded-md bg-warn/5" : ""}
+      `}
     >
       {draggable && (
         <button
@@ -214,8 +226,11 @@ export function TaskItem({ task, draggable = true }: Props) {
               setEditValue(task.title);
               setEditing(true);
             }}
-            className={`truncate cursor-text text-[14px] ${task.status === "done" ? "line-through text-subink" : ""}`}
+            className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : ""}`}
           >
+            {task.isMinimum && (
+              <span className="text-warn text-[10px] shrink-0" title={lang === "ja" ? "今日の最低限" : "Min. task"}>★</span>
+            )}
             {task.projectName && !grouping && (
               <span className="opacity-40">:{task.projectName} </span>
             )}
