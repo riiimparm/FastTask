@@ -145,11 +145,13 @@ export function TaskItem({ task, draggable = true }: Props) {
       style={style}
       data-project={task.projectName || undefined}
       onClick={() => setSelectedTaskId(task.id)}
-      className={`group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all
-        ${isSelected ? "ring-2 ring-accent/40 rounded-md bg-accent/5" : ""}
-        ${isBulkSelected ? "ring-2 ring-accent/60 rounded-md bg-accent/10" : ""}
-        ${isFocused && !isSelected ? "ring-2 ring-accent rounded-md" : ""}
-        ${isReorderMode && isSelected ? "ring-2 ring-warn/60 rounded-md bg-warn/5" : ""}
+      className={`group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
+        border-l-[3px]
+        ${isSelected && !isReorderMode ? "border-accent bg-accent/10" : ""}
+        ${isBulkSelected ? "border-accent bg-accent/15" : ""}
+        ${isFocused && !isSelected ? "border-accent" : ""}
+        ${isReorderMode && isSelected ? "border-warn bg-warn/10" : ""}
+        ${!isSelected && !isBulkSelected && !isFocused ? "border-transparent" : ""}
       `}
     >
       {draggable && (

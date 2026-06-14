@@ -20,7 +20,8 @@ const SHORTCUTS_JA = [
   ["Delete", "選択タスクを削除"],
   ["Escape", "モード解除 → 選択解除"],
   ["Ctrl + Z", "直前操作を元に戻す"],
-  ["Tab", "入力欄 ↔ リスト切り替え"],
+  ["↓ (入力欄から)", "リストへ移動"],
+  ["Esc (リストから)", "入力欄へ戻る"],
   ["?", "このヘルプを開く/閉じる"],
 ];
 
@@ -38,7 +39,8 @@ const SHORTCUTS_EN = [
   ["Delete", "Delete selected task"],
   ["Escape", "Clear mode → Clear selection"],
   ["Ctrl + Z", "Undo last action"],
-  ["Tab", "Toggle input ↔ list focus"],
+  ["↓ (from input)", "Move to list"],
+  ["Esc (from list)", "Back to input"],
   ["?", "Open/close this help"],
 ];
 

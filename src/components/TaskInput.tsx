@@ -104,11 +104,10 @@ export function TaskInput() {
         return;
       }
     }
-    // Tabでリストにフォーカス移動（補完候補がない場合）
-    if (e.key === "Tab" && projectCandidates.length === 0) {
+    // ↓キーでリストへ移動（補完候補がない場合）
+    if (e.key === "ArrowDown" && projectCandidates.length === 0) {
       e.preventDefault();
       inputRef.current?.blur();
-      // todoタスクの先頭を選択
       const todoTasks = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
       if (todoTasks.length > 0) {
         setSelectedTaskId(todoTasks[0].id);
