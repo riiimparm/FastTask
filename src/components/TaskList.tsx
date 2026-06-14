@@ -18,7 +18,6 @@ import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
 import { Task } from "../types";
 import { TaskItem } from "./TaskItem";
-import { projectColor } from "../utils/project";
 import { t } from "../i18n";
 
 const NONE_KEY = "__none__";
@@ -35,7 +34,6 @@ function ProjectSection({ projectKey, projectName, tasks, collapsed, onToggle }:
   const sortable = useSortable({ id: `section:${projectKey}` });
   const reorderTasks = useStore((s) => s.reorderTasks);
   const lang = useStore((s) => s.settings.language);
-  const color = projectName ? projectColor(projectName) : "#8E8E93";
 
   const innerSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -78,7 +76,7 @@ function ProjectSection({ projectKey, projectName, tasks, collapsed, onToggle }:
         <button
           onClick={onToggle}
           className="section-header flex-1 text-left flex items-center gap-1"
-          style={projectName ? { color, opacity: 0.85 } : {}}
+          style={{}}
         >
           <span className={`transition-transform ${collapsed ? "-rotate-90" : ""}`}>
             <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 9 18 9 12 18"/></svg>

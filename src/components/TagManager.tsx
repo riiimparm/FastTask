@@ -154,7 +154,7 @@ export function TagManager() {
         {!adding && (
           <button
             onClick={() => setAdding(true)}
-            className="text-[12px] px-2 py-1 rounded bg-accent text-white hover:opacity-90"
+            className="text-[12px] px-2 py-1 rounded bg-[#1C1C1E] text-[#F5F5F5] hover:bg-black dark:bg-[#E0E0E0] dark:text-[#111] dark:hover:bg-[#F5F5F5]"
           >
             {t(lang, "newTag")}
           </button>

@@ -16,12 +16,16 @@ body {
 }
 
 html.dark body {
-  background: #1C1C1E;
+  background: #0D0D0D;
   color: #F5F5F7;
 }
 
 button {
   font-family: inherit;
+  outline: none;
+}
+button:focus {
+  outline: none;
 }
 
 input, textarea {
@@ -39,27 +43,12 @@ html.dark .glass {
 }
 
 .task-item[data-project] {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--project-color) 6%, transparent),
-    color-mix(in srgb, var(--project-color) 3%, transparent)
-  );
-  box-shadow:
-    0 2px 8px color-mix(in srgb, var(--project-color) 20%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--project-color) 15%, transparent);
   border-radius: 10px;
   transition: all 150ms ease;
 }
 
 .task-item[data-project]:hover {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--project-color) 10%, transparent),
-    color-mix(in srgb, var(--project-color) 5%, transparent)
-  );
-  box-shadow:
-    0 4px 16px color-mix(in srgb, var(--project-color) 30%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--project-color) 25%, transparent);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .task-item-plain {
@@ -89,7 +78,7 @@ html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
 
 /* Dark mode generic overrides for utility-driven elements */
 html.dark .bg-white { background-color: rgba(255,255,255,0.06) !important; }
-html.dark .bg-appbg { background-color: #1C1C1E !important; }
+html.dark .bg-appbg { background-color: #0D0D0D !important; }
 html.dark .border-black\/5 { border-color: rgba(255,255,255,0.08) !important; }
 html.dark .border-black\/10 { border-color: rgba(255,255,255,0.12) !important; }
 html.dark .hover\:bg-black\/5:hover { background-color: rgba(255,255,255,0.06) !important; }
@@ -109,11 +98,59 @@ html.dark textarea::placeholder {
 }
 
 .section-header {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   color: #6E6E73;
+  font-family: -apple-system, "SF Pro Display", "Helvetica Neue", ui-sans-serif, sans-serif;
+}
+
+/* 選択ハイライト: 左から右へ曲線的にフェードアウト */
+.task-selected-bg {
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.04) 0%,
+    rgba(0,0,0,0.025) 35%,
+    rgba(0,0,0,0.008) 65%,
+    transparent 100%
+  );
+}
+html.dark .task-selected-bg {
+  background: linear-gradient(
+    to right,
+    rgba(255,255,255,0.07) 0%,
+    rgba(255,255,255,0.045) 30%,
+    rgba(255,255,255,0.015) 65%,
+    transparent 100%
+  );
+}
+.task-bulk-bg {
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.03) 0%,
+    rgba(0,0,0,0.015) 40%,
+    transparent 100%
+  );
+}
+html.dark .task-bulk-bg {
+  background: linear-gradient(
+    to right,
+    rgba(255,255,255,0.05) 0%,
+    rgba(255,255,255,0.025) 40%,
+    transparent 100%
+  );
+}
+
+/* 完了時の左スイープアウトアニメーション */
+@keyframes sweep-left {
+  0%   { transform: translateX(0);     opacity: 1; }
+  25%  { transform: translateX(-8px);  opacity: 0.9; }
+  100% { transform: translateX(-110%); opacity: 0; }
+}
+.task-sweep-left {
+  animation: sweep-left 0.38s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
 }
 
 /* react-day-picker minimal restyle */

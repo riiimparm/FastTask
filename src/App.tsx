@@ -324,15 +324,17 @@ function AppInner() {
       <Header onOpenSettings={() => setShowSettings(true)} />
       <TaskInput />
       <div className="px-3 py-2 flex items-center justify-between text-[11px] text-subink">
-        <label className="flex items-center gap-1.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={grouping}
-            onChange={(e) => updateSettings({ groupingEnabled: e.target.checked })}
-            className="accent-accent"
-          />
+        <button
+          onClick={() => updateSettings({ groupingEnabled: !grouping })}
+          className="flex items-center gap-1.5 cursor-pointer select-none"
+        >
+          <span className={`w-3.5 h-3.5 rounded-[2px] border transition-all flex-shrink-0 ${
+            grouping
+              ? "bg-[#1C1C1E] border-[#1C1C1E] dark:bg-[#E0E0E0] dark:border-[#E0E0E0]"
+              : "border-black/30 dark:border-white/30"
+          }`} />
           {t(lang, "grouping")}
-        </label>
+        </button>
         {isReorderMode && (
           <span className="text-accent text-[11px] font-medium animate-pulse">
             ↕ {lang === "ja" ? "並び替えモード" : "Reorder mode"}

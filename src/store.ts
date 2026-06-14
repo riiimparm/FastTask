@@ -54,6 +54,7 @@ interface State {
   deleteTag: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setToast: (msg?: string) => void;
+  clearAllData: () => void;
   pushUndo: () => void;
   undo: () => void;
 }
@@ -308,5 +309,9 @@ export const useStore = create<State>((set, get) => ({
 
   setToast(msg) {
     set({ toast: msg });
+  },
+  clearAllData() {
+    set({ tasks: [], tags: [], undoStack: [] });
+    scheduleSave(get);
   },
 }));

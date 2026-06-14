@@ -11,6 +11,7 @@ export function TaskInput() {
   const tasks = useStore((s) => s.tasks);
   const tags = useStore((s) => s.tags);
   const lang = useStore((s) => s.settings.language);
+  const showDueDate = useStore((s) => s.settings.showDueDate ?? false);
   const [value, setValue] = useState("");
   const [due, setDue] = useState<Date | undefined>(undefined);
   const [showDate, setShowDate] = useState(false);
@@ -155,11 +156,12 @@ export function TaskInput() {
             </div>
           )}
         </div>
+        {showDueDate && (
         <div className="relative">
           <button
             ref={dateBtnRef}
             onClick={() => setShowDate((v) => !v)}
-            className={`h-9 px-2 rounded-[10px] border border-black/10 flex items-center gap-1 text-[12px] ${due ? "bg-accent/10 text-accent border-accent/30" : "text-subink hover:bg-black/5"}`}
+            className={`h-9 px-2 rounded-[10px] border border-black/10 flex items-center gap-1 text-[12px] ${due ? "bg-black/8 text-ink border-black/20 dark:bg-white/10 dark:text-white dark:border-white/20" : "text-subink hover:bg-black/5"}`}
             title={t(lang, "titleSetDue")}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -196,11 +198,14 @@ export function TaskInput() {
             )}
           </Popover>
         </div>
+        )}
         <button
           onClick={submit}
           disabled={!value.trim()}
-          className={`h-9 w-9 rounded-[10px] flex items-center justify-center text-white transition-all ${
-            value.trim() ? "bg-accent hover:opacity-90" : "bg-black/10 cursor-not-allowed"
+          className={`h-9 w-9 rounded-[10px] flex items-center justify-center transition-all ${
+            value.trim()
+              ? "bg-[#1C1C1E] text-[#F5F5F5] hover:bg-black dark:bg-[#E0E0E0] dark:text-[#111111] dark:hover:bg-[#F5F5F5]"
+              : "bg-black/10 text-subink cursor-not-allowed"
           }`}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -220,11 +225,7 @@ export function TaskInput() {
           {matchedTags.map((tag) => (
             <span
               key={tag.id}
-              className="text-[10px] px-1.5 py-0.5 rounded-full"
-              style={{
-                background: `color-mix(in srgb, ${tag.color} 12%, transparent)`,
-                color: tag.color,
-              }}
+              className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/8 text-subink dark:bg-white/10"
             >
               {tag.name}
             </span>

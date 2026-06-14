@@ -30,6 +30,8 @@ export interface Settings {
   autoDeleteOldCompleted: boolean;
   groupingEnabled: boolean;
   copyGroupingEnabled: boolean;
+  showDueDate: boolean;
+  focusShortcut: string;
   theme: Theme;
   language: Language;
 }
@@ -48,6 +50,8 @@ export const defaultSettings: Settings = {
   autoDeleteOldCompleted: true,
   groupingEnabled: true,
   copyGroupingEnabled: true,
+  showDueDate: false,
+  focusShortcut: "",
   theme: "system",
   language: "ja",
 };
