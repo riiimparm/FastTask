@@ -9,7 +9,7 @@ import { FocusTimerSetup } from "./components/FocusTimerSetup";
 import { FocusEndModal } from "./components/FocusEndModal";
 import { UiProvider, useUiContext } from "./context/UiContext";
 import { useStore } from "./store";
-import { osNotify } from "./utils/notify";
+import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActionCallback } from "./utils/notify";
 import { t } from "./i18n";
 
 function AppInner() {
@@ -66,7 +66,7 @@ function AppInner() {
           setFocusElapsed(elapsed);
           setFocusEndMode("ended");
           setShowFocusEnd(true);
-          osNotify("FastTask", lang === "ja" ? "タイマーが終了しました" : "Timer has ended");
+          osNotifyWithAction("FastTask", lang === "ja" ? "タイマーが終了しました" : "Timer has ended");
           return 0;
         }
         return prev - 1;
@@ -103,6 +103,17 @@ function AppInner() {
     setShowFocusEnd(false);
     setTimerActive(true);
   }
+
+  // 通知アクション初期化 & コールバック設定
+  useEffect(() => {
+    setupFocusTimerActions(lang);
+    setFocusTimerActionCallback((action) => {
+      if (action === "extend") extendFocus();
+      else endFocus();
+    });
+    return () => setFocusTimerActionCallback(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   const todoTasks = useMemo(
     () => tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order),
@@ -324,9 +335,18 @@ function AppInner() {
       if (e.key === "m") {
         e.preventDefault();
         const targets = bulkSelected.size > 0 ? [...bulkSelected] : [selectedTaskId];
-        // 全てがisMinimumならfalseに、そうでなければtrueに
         const allMin = targets.every((id) => tasks.find((t) => t.id === id)?.isMinimum);
         targets.forEach((id) => updateTask(id, { isMinimum: !allMin }));
+        if (bulkSelected.size > 0) clearBulkSelect();
+        return;
+      }
+
+      // p: 確認待ちトグル
+      if (e.key === "p") {
+        e.preventDefault();
+        const targets = bulkSelected.size > 0 ? [...bulkSelected] : [selectedTaskId];
+        const allPending = targets.every((id) => tasks.find((t) => t.id === id)?.isPending);
+        targets.forEach((id) => updateTask(id, { isPending: !allPending }));
         if (bulkSelected.size > 0) clearBulkSelect();
         return;
       }
@@ -399,14 +419,6 @@ function AppInner() {
 
   return (
     <div className="h-full flex flex-col bg-appbg relative">
-      {/* フォーカスモード中のオーバーレイ（ヘッダー/入力欄をdimに） */}
-      {focusedTaskId && (
-        <div
-          className="absolute inset-0 bg-appbg/60 z-10 pointer-events-none"
-          style={{ bottom: "auto", height: "calc(100% - 160px)" }}
-        />
-      )}
-
       <Header onOpenSettings={() => setShowSettings(true)} />
       <TaskInput />
       <div className="px-3 py-2 flex items-center justify-between text-[11px] text-subink">

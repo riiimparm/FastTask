@@ -79,6 +79,7 @@ const dict = {
     shortcutCapture: "クリックしてショートカットを設定",
     shortcutCapturing: "キーを押してください...",
     shortcutModifierHint: "修飾キー（⌘/⌃/⌥）を含めてください",
+    pendingTask: "確認待ち",
   },
   en: {
     appTitle: "FastTask",
@@ -158,6 +159,7 @@ const dict = {
     shortcutCapture: "Click to set shortcut",
     shortcutCapturing: "Press a key...",
     shortcutModifierHint: "Include a modifier key (⌘/⌃/⌥)",
+    pendingTask: "Pending",
   },
 } as const;
 

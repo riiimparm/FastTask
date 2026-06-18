@@ -126,9 +126,11 @@ export function TaskItem({ task, draggable = true }: Props) {
         ${completing ? "task-sweep-left" : ""}
         ${isSelected && !isReorderMode ? "border-black/30 dark:border-white/50 task-selected-bg" : ""}
         ${isBulkSelected ? "border-black/20 dark:border-white/35 task-bulk-bg" : ""}
-        ${isFocused && !isSelected ? "border-black/25 dark:border-white/40" : ""}
+        ${isFocused ? "border-black/25 dark:border-white/40 shadow-[0_0_18px_3px_rgba(255,220,80,0.13),0_2px_8px_rgba(0,0,0,0.07)]" : ""}
         ${isReorderMode && isSelected ? "border-black/25 dark:border-white/35 task-bulk-bg" : ""}
         ${!isSelected && !isBulkSelected && !isFocused ? "border-transparent" : ""}
+        ${focusedTaskId && !isFocused ? "opacity-30 pointer-events-none select-none" : ""}
+        ${task.isPending && !isFocused && !focusedTaskId ? "opacity-40" : ""}
       `}
     >
       {draggable && (
@@ -153,7 +155,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             task.status === "done"
               ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
               : task.isMinimum
-              ? "border-amber-400 hover:border-amber-500 dark:border-amber-400 dark:hover:border-amber-500"
+              ? "border-white hover:border-white/80 dark:border-white dark:hover:border-white/80"
               : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
           }`}
         >
