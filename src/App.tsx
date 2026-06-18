@@ -115,10 +115,20 @@ function AppInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
-  const todoTasks = useMemo(
-    () => tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order),
-    [tasks],
-  );
+  const todoTasks = useMemo(() => {
+    const base = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
+    if (!grouping) return base;
+    // グルーピング ON 時は ProjectSection の表示順に合わせる
+    const NONE_KEY = "__none__";
+    const sectionsMap = new Map<string, typeof base>();
+    const sectionOrder: string[] = [];
+    for (const t of base) {
+      const key = t.projectName ?? NONE_KEY;
+      if (!sectionsMap.has(key)) { sectionsMap.set(key, []); sectionOrder.push(key); }
+      sectionsMap.get(key)!.push(t);
+    }
+    return sectionOrder.flatMap((k) => sectionsMap.get(k)!);
+  }, [tasks, grouping]);
 
   useEffect(() => {
     init();
@@ -166,6 +176,15 @@ function AppInner() {
       if (!isInput && e.key === "?") {
         e.preventDefault();
         setShowShortcuts((v) => !v);
+        return;
+      }
+
+      // /: 入力フォームへ移動（入力欄以外）
+      if (!isInput && e.key === "/") {
+        e.preventDefault();
+        setSelectedTaskId(null);
+        clearBulkSelect();
+        focusInput();
         return;
       }
 
@@ -270,12 +289,16 @@ function AppInner() {
         return;
       }
 
-      // k / ArrowUp: 前のタスク
+      // k / ArrowUp: 前のタスク（最上部から更に上で入力フォームへ）
       if (e.key === "ArrowUp" || (e.key === "k" && !e.shiftKey)) {
         e.preventDefault();
         if (currentIdx > 0) {
           setSelectedTaskId(todoTasks[currentIdx - 1].id);
           clearBulkSelect();
+        } else {
+          setSelectedTaskId(null);
+          clearBulkSelect();
+          focusInput();
         }
         return;
       }

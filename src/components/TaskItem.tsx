@@ -130,7 +130,7 @@ export function TaskItem({ task, draggable = true }: Props) {
         ${isReorderMode && isSelected ? "border-black/25 dark:border-white/35 task-bulk-bg" : ""}
         ${!isSelected && !isBulkSelected && !isFocused ? "border-transparent" : ""}
         ${focusedTaskId && !isFocused ? "opacity-30 pointer-events-none select-none" : ""}
-        ${task.isPending && !isFocused && !focusedTaskId ? "opacity-40" : ""}
+        ${task.isPending && !focusedTaskId ? "opacity-40" : ""}
       `}
     >
       {draggable && (
@@ -155,7 +155,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             task.status === "done"
               ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
               : task.isMinimum
-              ? "border-white hover:border-white/80 dark:border-white dark:hover:border-white/80"
+              ? "border-black hover:border-black/70 dark:border-white dark:hover:border-white/80"
               : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
           }`}
         >
@@ -197,6 +197,11 @@ export function TaskItem({ task, draggable = true }: Props) {
               <span className="opacity-40">:{task.projectName} </span>
             )}
             {body || <span className="text-subink italic">{t(lang, "untitled")}</span>}
+            {task.isPending && (
+              <svg className="shrink-0 opacity-50" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" title={lang === "ja" ? "確認待ち" : "Pending"}>
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            )}
           </div>
         )}
       </div>

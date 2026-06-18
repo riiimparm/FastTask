@@ -31,7 +31,13 @@ export async function setupFocusTimerActions(lang: string): Promise<void> {
     if (_unlisten) _unlisten();
     const listener = await onAction((e: unknown) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const id = (e as any).id as string;
+      const payload = e as any;
+      // macOS: actionId フィールドまたは actionType.id を試みる
+      const id: string =
+        payload?.actionId ??
+        payload?.id ??
+        payload?.action?.id ??
+        "";
       if (id === "extend") _focusActionCb?.("extend");
       else if (id === "finish") _focusActionCb?.("finish");
     });

@@ -95,6 +95,11 @@ export function TaskInput() {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") {
       e.preventDefault();
+      // 補完候補がある場合は Enter で選択（submit しない）
+      if (projectCandidates.length > 0) {
+        applyCandidate(projectCandidates[highlight] ?? projectCandidates[0]);
+        return;
+      }
       submit();
       return;
     }
@@ -127,6 +132,11 @@ export function TaskInput() {
     }
   }
 
+  const bulkCount = useMemo(() => {
+    const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.length >= 2 ? parts.length : 0;
+  }, [value]);
+
   const { projectName: parsedProject } = parseProjectFromInput(value);
   const detectedUrl = useMemo(() => {
     const m = value.match(/https?:\/\/\S+/);
@@ -137,15 +147,22 @@ export function TaskInput() {
     <div className="px-4 py-3 border-b border-black/5">
       <div className="relative flex items-center gap-2">
         <div className="flex-1 relative">
-          <input
-            ref={inputRef}
-            data-main-input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={t(lang, "placeholder")}
-            className="w-full px-3 py-2 rounded-[10px] border border-black/10 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
-          />
+          <div className="relative w-full">
+            <input
+              ref={inputRef}
+              data-main-input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={t(lang, "placeholder")}
+              className={`w-full px-3 py-2 rounded-[10px] border outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all ${bulkCount >= 2 ? "border-accent/60 pr-14" : "border-black/10"}`}
+            />
+            {bulkCount >= 2 && (
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full pointer-events-none">
+                ×{bulkCount}
+              </span>
+            )}
+          </div>
           {projectCandidates.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 glass rounded-card shadow-cardHover py-1 z-40 fade-in">
               {projectCandidates.map((p, i) => (
