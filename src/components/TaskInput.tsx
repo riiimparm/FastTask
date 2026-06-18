@@ -70,12 +70,22 @@ export function TaskInput() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  const splitHintVisible = useMemo(() => {
+    if (!value.trim()) return false;
+    const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.some((part) => {
+      const withoutUrl = part.replace(/https?:\/\/\S+/g, "").trim();
+      return withoutUrl.length >= 30;
+    });
+  }, [value]);
+
   function submit() {
     if (!value.trim()) return;
     const iso = due
       ? `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`
       : undefined;
-    addTask(value, iso);
+    const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
+    parts.forEach((part) => addTask(part, iso));
     setValue("");
     setDue(undefined);
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -239,6 +249,14 @@ export function TaskInput() {
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
           {t(lang, "urlDetected")}: <span className="opacity-70 truncate max-w-[260px] inline-block align-bottom">{detectedUrl}</span>
+        </div>
+      )}
+      {splitHintVisible && (
+        <div className="text-[11px] text-amber-500 mt-0.5 pl-1 flex items-center gap-1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {t(lang, "splitHint")}
         </div>
       )}
     </div>

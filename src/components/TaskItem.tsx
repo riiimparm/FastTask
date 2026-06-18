@@ -152,6 +152,8 @@ export function TaskItem({ task, draggable = true }: Props) {
           className={`w-[17px] h-[17px] rounded-[3px] border-2 flex items-center justify-center transition-all ${
             task.status === "done"
               ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
+              : task.isMinimum
+              ? "border-amber-400 hover:border-amber-500 dark:border-amber-400 dark:hover:border-amber-500"
               : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
           }`}
         >
@@ -188,9 +190,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             }}
             className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : ""}`}
           >
-            {task.isMinimum && (
-              <span className="text-subink text-[10px] shrink-0" title={lang === "ja" ? "今日の最低限" : "Min. task"}>★</span>
-            )}
+
             {task.projectName && !grouping && (
               <span className="opacity-40">:{task.projectName} </span>
             )}

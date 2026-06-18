@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./components/Header";
 import { TaskInput } from "./components/TaskInput";
 import { TaskList } from "./components/TaskList";
 import { CompletedSection } from "./components/CompletedSection";
 import { SettingsModal } from "./components/SettingsModal";
 import { ShortcutsModal } from "./components/ShortcutsModal";
+import { FocusTimerSetup } from "./components/FocusTimerSetup";
+import { FocusEndModal } from "./components/FocusEndModal";
 import { UiProvider, useUiContext } from "./context/UiContext";
 import { useStore } from "./store";
+import { osNotify } from "./utils/notify";
 import { t } from "./i18n";
 
 function AppInner() {
@@ -32,13 +35,74 @@ function AppInner() {
     focusedTaskId,
     isReorderMode,
     bulkSelected,
+    focusPhase,
+    focusMinutes,
     setSelectedTaskId,
     setFocusedTaskId,
     setIsReorderMode,
     toggleBulkSelect,
     clearBulkSelect,
+    setFocusPhase,
+    setFocusMinutes,
     mainInputRef,
   } = useUiContext();
+
+  const [timerActive, setTimerActive] = useState(false);
+  const [focusTimeLeft, setFocusTimeLeft] = useState(0);
+  const [focusElapsed, setFocusElapsed] = useState(0);
+  const [showFocusEnd, setShowFocusEnd] = useState(false);
+  const [focusEndMode, setFocusEndMode] = useState<"ended" | "confirm">("ended");
+  const focusMinutesRef = useRef(focusMinutes);
+  useEffect(() => { focusMinutesRef.current = focusMinutes; }, [focusMinutes]);
+
+  // タイマーカウントダウン
+  useEffect(() => {
+    if (!timerActive) return;
+    const id = setInterval(() => {
+      setFocusTimeLeft((prev) => {
+        if (prev <= 1) {
+          setTimerActive(false);
+          const elapsed = focusMinutesRef.current * 60;
+          setFocusElapsed(elapsed);
+          setFocusEndMode("ended");
+          setShowFocusEnd(true);
+          osNotify("FastTask", lang === "ja" ? "タイマーが終了しました" : "Timer has ended");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timerActive, lang]);
+
+  function startFocus() {
+    const secs = focusMinutesRef.current * 60;
+    setFocusTimeLeft(secs);
+    setFocusElapsed(0);
+    setTimerActive(true);
+    setFocusPhase("running");
+    osNotify("FastTask", lang === "ja" ? "フォーカス開始" : "Focus started");
+  }
+
+  function cancelFocusSetup() {
+    setFocusedTaskId(null);
+    setFocusPhase("idle");
+  }
+
+  function endFocus() {
+    setTimerActive(false);
+    setFocusedTaskId(null);
+    setFocusPhase("idle");
+    setShowFocusEnd(false);
+    setFocusTimeLeft(0);
+  }
+
+  function extendFocus() {
+    const extra = 5 * 60;
+    setFocusTimeLeft(extra);
+    setShowFocusEnd(false);
+    setTimerActive(true);
+  }
 
   const todoTasks = useMemo(
     () => tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order),
@@ -94,6 +158,21 @@ function AppInner() {
         return;
       }
 
+      // フォーカスセットアップ中: Enter/Esc を最優先（入力欄でも有効）
+      if (focusPhase === "setup") {
+        if (e.key === "Enter") { e.preventDefault(); startFocus(); return; }
+        if (e.key === "Escape") { e.preventDefault(); cancelFocusSetup(); return; }
+      }
+
+      // フォーカス実行中: Enter/Esc で終了確認（入力欄以外）
+      if (focusPhase === "running" && !isInput && (e.key === "Enter" || e.key === "Escape")) {
+        e.preventDefault();
+        setFocusEndMode("confirm");
+        setFocusElapsed(focusMinutes * 60 - focusTimeLeft);
+        setShowFocusEnd(true);
+        return;
+      }
+
       if (isInput) return;
 
       // Escape: 段階的に解除
@@ -105,6 +184,7 @@ function AppInner() {
         }
         if (focusedTaskId) {
           setFocusedTaskId(null);
+          setFocusPhase("idle");
           return;
         }
         if (bulkSelected.size > 0) {
@@ -213,14 +293,11 @@ function AppInner() {
         return;
       }
 
-      // Enter: フォーカスモードON/OFF
-      if (e.key === "Enter") {
+      // Enter: タイマーセットアップ起動
+      if (e.key === "Enter" && selectedTaskId) {
         e.preventDefault();
-        if (focusedTaskId === selectedTaskId) {
-          setFocusedTaskId(null);
-        } else {
-          setFocusedTaskId(selectedTaskId);
-        }
+        setFocusedTaskId(selectedTaskId);
+        setFocusPhase("setup");
         return;
       }
 
@@ -295,6 +372,15 @@ function AppInner() {
       updateTask,
       reorderTasks,
       focusInput,
+      focusPhase,
+      focusMinutes,
+      focusTimeLeft,
+      startFocus,
+      cancelFocusSetup,
+      setFocusEndMode,
+      setFocusElapsed,
+      setShowFocusEnd,
+      setFocusPhase,
     ],
   );
 
@@ -340,9 +426,12 @@ function AppInner() {
             ↕ {lang === "ja" ? "並び替えモード" : "Reorder mode"}
           </span>
         )}
-        {focusedTaskId && (
-          <span className="text-accent text-[11px] font-medium">
+        {focusedTaskId && focusPhase === "running" && (
+          <span className="text-accent text-[11px] font-medium flex items-center gap-1.5">
             {t(lang, "focusMode")}
+            <span className="font-mono opacity-70">
+              {String(Math.floor(focusTimeLeft / 60)).padStart(2, "0")}:{String(focusTimeLeft % 60).padStart(2, "0")}
+            </span>
           </span>
         )}
       </div>
@@ -352,6 +441,25 @@ function AppInner() {
       </main>
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      {focusPhase === "setup" && (
+        <FocusTimerSetup
+          minutes={focusMinutes}
+          lang={lang}
+          onChangeMinutes={setFocusMinutes}
+          onStart={startFocus}
+          onCancel={cancelFocusSetup}
+        />
+      )}
+      {showFocusEnd && (
+        <FocusEndModal
+          mode={focusEndMode}
+          elapsedSeconds={focusElapsed}
+          lang={lang}
+          onExtend={extendFocus}
+          onFinish={endFocus}
+          onContinue={() => setShowFocusEnd(false)}
+        />
+      )}
       {toast && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 glass rounded-lg shadow-cardHover px-4 py-2 text-[12px] text-danger fade-in">
           {toast}

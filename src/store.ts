@@ -11,6 +11,7 @@ import {
   emptyAppData,
 } from "./types";
 import { parseProjectFromInput } from "./utils/project";
+import { osNotify } from "./utils/notify";
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
@@ -153,6 +154,22 @@ export const useStore = create<State>((set, get) => ({
       bindSystemTheme(() => get().settings.theme);
       document.documentElement.lang = settings.language;
       scheduleSave(get);
+
+      // 3日以上放置されたtodoタスクを通知
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const staleTasks = tasks.filter(
+        (t) => t.status === "todo" && new Date(t.createdAt) < threeDaysAgo,
+      );
+      if (staleTasks.length > 0) {
+        const isJa = settings.language === "ja";
+        osNotify(
+          "FastTask",
+          isJa
+            ? `${staleTasks.length}件のタスクが3日以上放置されています`
+            : `${staleTasks.length} task${staleTasks.length > 1 ? "s" : ""} pending for 3+ days`,
+        );
+      }
     } catch (e) {
       console.error("load_data failed", e);
       set({ loaded: true, toast: `Failed to load: ${e}` });
