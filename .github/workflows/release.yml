@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: '作成するタグ名 (例: v1.0.0)'
+        required: true
+        default: 'v0.0.0-draft'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release-id: ${{ steps.create-release.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create draft release with PR body
+        id: create-release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const tagName = context.ref.startsWith('refs/tags/') 
+              ? context.ref.replace('refs/tags/', '') 
+              : context.payload.inputs.tag_name;
+
+            // pr-release-relation.yml からPR番号を取得
+            let prNumbers = [];
+            try {
+              const content = fs.readFileSync('.github/pr-release-relation.yml', 'utf8');
+              const lines = content.split('\n');
+              let inTag = false;
+              for (const line of lines) {
+                if (line.includes(`- ${tagName}:`)) {
+                  inTag = true;
+                  continue;
+                }
+                if (inTag) {
+                  const m = line.match(/^\s+- (\d+)\s*$/);
+                  if (m) prNumbers.push(parseInt(m[1]));
+                  else if (line.trim() !== '') break;
+                }
+              }
+            } catch (e) {
+              core.warning(`pr-release-relation.yml の読み込みに失敗: ${e.message}`);
+            }
+
+            // 各PRのbodyを取得して結合
+            const bodies = [];
+            for (const prNumber of prNumbers) {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              if (pr.body) bodies.push(pr.body.trim());
+            }
+
+            const body = bodies.join('\n\n---\n\n') || `Release ${tagName}`;
+
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tagName,
+              name: `FastTask ${tagName}`,
+              body,
+              draft: true,
+              prerelease: false,
+            });
+
+            return release.id;
+
+  build:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release-id }}
+          args: ${{ matrix.args }}
