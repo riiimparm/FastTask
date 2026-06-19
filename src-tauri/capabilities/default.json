@@ -11,6 +11,13 @@
     "clipboard-manager:allow-read-text",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
-    "global-shortcut:allow-is-registered"
+    "global-shortcut:allow-is-registered",
+    "notification:default",
+    "notification:allow-notify",
+    "notification:allow-show",
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission",
+    "notification:allow-register-action-types",
+    "notification:allow-register-listener"
   ]
 }

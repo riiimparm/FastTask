@@ -1,19 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./components/Header";
 import { TaskInput } from "./components/TaskInput";
 import { TaskList } from "./components/TaskList";
 import { CompletedSection } from "./components/CompletedSection";
 import { SettingsModal } from "./components/SettingsModal";
 import { ShortcutsModal } from "./components/ShortcutsModal";
+import { FocusTimerSetup } from "./components/FocusTimerSetup";
+import { FocusEndModal } from "./components/FocusEndModal";
 import { UiProvider, useUiContext } from "./context/UiContext";
 import { useStore } from "./store";
+import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActionCallback } from "./utils/notify";
 import { t } from "./i18n";
+import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { CloseConfirmModal } from "./components/CloseConfirmModal";
 
 function AppInner() {
   const init = useStore((s) => s.init);
   const loaded = useStore((s) => s.loaded);
   const grouping = useStore((s) => s.settings.groupingEnabled);
   const lang = useStore((s) => s.settings.language);
+  const lastFocusMinutes = useStore((s) => s.settings.lastFocusMinutes);
   const updateSettings = useStore((s) => s.updateSettings);
   const toast = useStore((s) => s.toast);
   const setToast = useStore((s) => s.setToast);
@@ -22,8 +29,10 @@ function AppInner() {
   const deleteTask = useStore((s) => s.deleteTask);
   const updateTask = useStore((s) => s.updateTask);
   const reorderTasks = useStore((s) => s.reorderTasks);
+  const setTaskParent = useStore((s) => s.setTaskParent);
   const undo = useStore((s) => s.undo);
 
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -32,18 +41,103 @@ function AppInner() {
     focusedTaskId,
     isReorderMode,
     bulkSelected,
+    focusPhase,
+    focusMinutes,
     setSelectedTaskId,
     setFocusedTaskId,
     setIsReorderMode,
     toggleBulkSelect,
     clearBulkSelect,
+    setFocusPhase,
+    setFocusMinutes,
     mainInputRef,
+    triggerVibration,
   } = useUiContext();
 
-  const todoTasks = useMemo(
-    () => tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order),
-    [tasks],
-  );
+  const [timerActive, setTimerActive] = useState(false);
+  const [focusTimeLeft, setFocusTimeLeft] = useState(0);
+  const [focusElapsed, setFocusElapsed] = useState(0);
+  const [showFocusEnd, setShowFocusEnd] = useState(false);
+  const [focusEndMode, setFocusEndMode] = useState<"ended" | "confirm">("ended");
+  const focusMinutesRef = useRef(focusMinutes);
+  useEffect(() => { focusMinutesRef.current = focusMinutes; }, [focusMinutes]);
+  useEffect(() => { setFocusMinutes(lastFocusMinutes ?? 25); }, []);
+
+  // タイマーカウントダウン
+  useEffect(() => {
+    if (!timerActive) return;
+    const id = setInterval(() => {
+      setFocusTimeLeft((prev) => {
+        if (prev <= 1) {
+          setTimerActive(false);
+          const elapsed = focusMinutesRef.current * 60;
+          setFocusElapsed(elapsed);
+          setFocusEndMode("ended");
+          setShowFocusEnd(true);
+          osNotifyWithAction("FastTask", lang === "ja" ? "タイマーが終了しました" : "Timer has ended");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timerActive, lang]);
+
+  function startFocus() {
+    const secs = focusMinutesRef.current * 60;
+    setFocusTimeLeft(secs);
+    setFocusElapsed(0);
+    setTimerActive(true);
+    setFocusPhase("running");
+    updateSettings({ lastFocusMinutes: focusMinutesRef.current });
+    osNotify("FastTask", lang === "ja" ? "フォーカス開始" : "Focus started");
+  }
+
+  function cancelFocusSetup() {
+    setFocusedTaskId(null);
+    setFocusPhase("idle");
+  }
+
+  function endFocus() {
+    setTimerActive(false);
+    setFocusedTaskId(null);
+    setFocusPhase("idle");
+    setShowFocusEnd(false);
+    setFocusTimeLeft(0);
+  }
+
+  function extendFocus() {
+    const extra = 5 * 60;
+    setFocusTimeLeft(extra);
+    setShowFocusEnd(false);
+    setTimerActive(true);
+  }
+
+  // 通知アクション初期化 & コールバック設定
+  useEffect(() => {
+    setupFocusTimerActions(lang);
+    setFocusTimerActionCallback((action) => {
+      if (action === "extend") extendFocus();
+      else endFocus();
+    });
+    return () => setFocusTimerActionCallback(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+
+  const todoTasks = useMemo(() => {
+    const dfs = buildDfsOrder(tasks.filter((t) => t.status === "todo"));
+    if (!grouping) return dfs;
+    // グルーピング ON 時は ProjectSection の表示順に合わせる
+    const NONE_KEY = "__none__";
+    const sectionsMap = new Map<string, typeof dfs>();
+    const sectionOrder: string[] = [];
+    for (const t of dfs) {
+      const key = t.projectName ?? NONE_KEY;
+      if (!sectionsMap.has(key)) { sectionsMap.set(key, []); sectionOrder.push(key); }
+      sectionsMap.get(key)!.push(t);
+    }
+    return sectionOrder.flatMap((k) => sectionsMap.get(k)!);
+  }, [tasks, grouping]);
 
   useEffect(() => {
     init();
@@ -65,6 +159,24 @@ function AppInner() {
     window.addEventListener("focus", onWindowFocus);
     return () => window.removeEventListener("focus", onWindowFocus);
   }, [selectedTaskId, focusedTaskId, mainInputRef]);
+
+  // tasks の最新値を ref で保持（クローズハンドラが stale にならないように）
+  const tasksRef = useRef(tasks);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  // ウィンドウ閉じる前に isMinimum 未完了タスクがあれば確認モーダル表示（1度だけ登録）
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    getCurrentWindow().onCloseRequested(async (event) => {
+      const hasMinimum = tasksRef.current.some((t) => t.status === "todo" && t.isMinimum);
+      if (hasMinimum) {
+        event.preventDefault();
+        setShowCloseConfirm(true);
+      }
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const focusInput = useCallback(() => {
     mainInputRef.current?.focus();
@@ -94,6 +206,42 @@ function AppInner() {
         return;
       }
 
+      // /: 入力フォームへ移動（入力欄以外）
+      if (!isInput && e.key === "/") {
+        e.preventDefault();
+        setSelectedTaskId(null);
+        clearBulkSelect();
+        focusInput();
+        return;
+      }
+
+      // フォーカスセットアップ中: Enter/Esc を最優先（入力欄でも有効）
+      if (focusPhase === "setup") {
+        if (e.key === "Enter") { e.preventDefault(); startFocus(); return; }
+        if (e.key === "Escape") { e.preventDefault(); cancelFocusSetup(); return; }
+      }
+
+      // フォーカス実行中: Enter/Esc で終了確認（入力欄以外）
+      if (focusPhase === "running" && !isInput && (e.key === "Enter" || e.key === "Escape")) {
+        e.preventDefault();
+        setFocusEndMode("confirm");
+        setFocusElapsed(focusMinutes * 60 - focusTimeLeft);
+        setShowFocusEnd(true);
+        return;
+      }
+
+      // 入力フォーム選択中に Escape → アイテム選択へ
+      if (isInput && e.key === "Escape") {
+        e.preventDefault();
+        mainInputRef.current?.blur();
+        if (selectedTaskId) {
+          // 既存の選択を維持
+        } else if (todoTasks.length > 0) {
+          setSelectedTaskId(todoTasks[0].id);
+        }
+        return;
+      }
+
       if (isInput) return;
 
       // Escape: 段階的に解除
@@ -105,6 +253,7 @@ function AppInner() {
         }
         if (focusedTaskId) {
           setFocusedTaskId(null);
+          setFocusPhase("idle");
           return;
         }
         if (bulkSelected.size > 0) {
@@ -170,7 +319,7 @@ function AppInner() {
       const currentIdx = todoTasks.findIndex((t) => t.id === selectedTaskId);
 
       // j / ArrowDown: 次のタスク
-      if (e.key === "ArrowDown" || (e.key === "j" && !e.shiftKey)) {
+      if ((e.key === "ArrowDown" && !e.shiftKey) || (e.key === "j" && !e.shiftKey)) {
         e.preventDefault();
         if (currentIdx < todoTasks.length - 1) {
           setSelectedTaskId(todoTasks[currentIdx + 1].id);
@@ -179,12 +328,16 @@ function AppInner() {
         return;
       }
 
-      // k / ArrowUp: 前のタスク
-      if (e.key === "ArrowUp" || (e.key === "k" && !e.shiftKey)) {
+      // k / ArrowUp: 前のタスク（最上部から更に上で入力フォームへ）
+      if ((e.key === "ArrowUp" && !e.shiftKey) || (e.key === "k" && !e.shiftKey)) {
         e.preventDefault();
         if (currentIdx > 0) {
           setSelectedTaskId(todoTasks[currentIdx - 1].id);
           clearBulkSelect();
+        } else {
+          setSelectedTaskId(null);
+          clearBulkSelect();
+          focusInput();
         }
         return;
       }
@@ -192,11 +345,11 @@ function AppInner() {
       // Shift+j: 複数選択（下方向）
       if (e.key === "J" || (e.key === "j" && e.shiftKey) || (e.key === "ArrowDown" && e.shiftKey)) {
         e.preventDefault();
-        toggleBulkSelect(selectedTaskId);
+        if (!bulkSelected.has(selectedTaskId)) toggleBulkSelect(selectedTaskId);
         if (currentIdx < todoTasks.length - 1) {
           const nextId = todoTasks[currentIdx + 1].id;
           setSelectedTaskId(nextId);
-          toggleBulkSelect(nextId);
+          if (!bulkSelected.has(nextId)) toggleBulkSelect(nextId);
         }
         return;
       }
@@ -204,23 +357,20 @@ function AppInner() {
       // Shift+k: 複数選択（上方向）
       if (e.key === "K" || (e.key === "k" && e.shiftKey) || (e.key === "ArrowUp" && e.shiftKey)) {
         e.preventDefault();
-        toggleBulkSelect(selectedTaskId);
+        if (!bulkSelected.has(selectedTaskId)) toggleBulkSelect(selectedTaskId);
         if (currentIdx > 0) {
           const prevId = todoTasks[currentIdx - 1].id;
           setSelectedTaskId(prevId);
-          toggleBulkSelect(prevId);
+          if (!bulkSelected.has(prevId)) toggleBulkSelect(prevId);
         }
         return;
       }
 
-      // Enter: フォーカスモードON/OFF
-      if (e.key === "Enter") {
+      // Enter: タイマーセットアップ起動
+      if (e.key === "Enter" && selectedTaskId) {
         e.preventDefault();
-        if (focusedTaskId === selectedTaskId) {
-          setFocusedTaskId(null);
-        } else {
-          setFocusedTaskId(selectedTaskId);
-        }
+        setFocusedTaskId(selectedTaskId);
+        setFocusPhase("setup");
         return;
       }
 
@@ -231,14 +381,85 @@ function AppInner() {
         return;
       }
 
+      // Tab: 小タスク化 / Shift+Tab: インデント解除
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const selected = tasks.find((t) => t.id === selectedTaskId);
+        if (!selected) return;
+
+        if (e.shiftKey) {
+          // Shift+Tab: インデント解除
+          if (!selected.parentId) { triggerVibration(selectedTaskId); return; }
+          const parent = tasks.find((t) => t.id === selected.parentId);
+          const newParentId = parent?.parentId;
+          const updated = tasks.map((t) =>
+            t.id === selectedTaskId ? { ...t, parentId: newParentId } : t,
+          );
+          const dfsIds = buildDfsOrder(updated.filter((t) => t.status === "todo")).map((t) => t.id);
+          setTaskParent(selectedTaskId, newParentId, dfsIds);
+        } else {
+          // Tab: 小タスク化
+          const flatList = grouping
+            ? todoTasks.filter((t) => (t.projectName ?? null) === (selected.projectName ?? null))
+            : todoTasks;
+          const idx = flatList.findIndex((t) => t.id === selectedTaskId);
+          if (idx <= 0) { triggerVibration(selectedTaskId); return; }
+          const above = flatList[idx - 1];
+          if ((above.projectName ?? null) !== (selected.projectName ?? null)) {
+            triggerVibration(selectedTaskId); return;
+          }
+
+          // effective parent を決定：
+          //   above が同 depth → above が親（1段深くなる）
+          //   above が深い    → above の先祖をたどり selected と同 depth のものを親にする
+          //   above が浅い    → above を親（above.depth+1 になる）
+          const selectedDepth = getDepth(selected, tasks);
+          const aboveDepth = getDepth(above, tasks);
+          let effectiveParent: typeof above = above;
+          if (aboveDepth > selectedDepth) {
+            let cur = above;
+            while (getDepth(cur, tasks) > selectedDepth) {
+              const p = tasks.find((tt) => tt.id === cur.parentId);
+              if (!p) { triggerVibration(selectedTaskId); return; }
+              cur = p;
+            }
+            effectiveParent = cur;
+          }
+
+          if (selected.parentId === effectiveParent.id) { triggerVibration(selectedTaskId); return; }
+          if (getDepth(effectiveParent, tasks) + 1 >= 5) { triggerVibration(selectedTaskId); setToast(t(lang, "maxDepthReached")); return; }
+
+          const updated = tasks.map((tt) =>
+            tt.id === selectedTaskId ? { ...tt, parentId: effectiveParent.id } : tt,
+          );
+          const dfsIds = buildDfsOrder(updated.filter((tt) => tt.status === "todo")).map((tt) => tt.id);
+          setTaskParent(selectedTaskId, effectiveParent.id, dfsIds);
+        }
+        return;
+      }
+
       // x: 完了トグル
       if (e.key === "x") {
         e.preventDefault();
         if (bulkSelected.size > 0) {
+          const allLocked = [...bulkSelected].some((id) => hasUndoneDescendants(id, tasks));
+          if (allLocked) { setToast(t(lang, "childrenPending")); return; }
           bulkSelected.forEach((id) => toggleTask(id));
           clearBulkSelect();
         } else {
+          if (hasUndoneDescendants(selectedTaskId, tasks)) {
+            setToast(t(lang, "childrenPending")); return;
+          }
           toggleTask(selectedTaskId);
+          // 完了後の選択移動：上 → 下 → 入力欄
+          if (currentIdx > 0) {
+            setSelectedTaskId(todoTasks[currentIdx - 1].id);
+          } else if (currentIdx < todoTasks.length - 1) {
+            setSelectedTaskId(todoTasks[currentIdx + 1].id);
+          } else {
+            setSelectedTaskId(null);
+            focusInput();
+          }
         }
         return;
       }
@@ -247,9 +468,18 @@ function AppInner() {
       if (e.key === "m") {
         e.preventDefault();
         const targets = bulkSelected.size > 0 ? [...bulkSelected] : [selectedTaskId];
-        // 全てがisMinimumならfalseに、そうでなければtrueに
         const allMin = targets.every((id) => tasks.find((t) => t.id === id)?.isMinimum);
         targets.forEach((id) => updateTask(id, { isMinimum: !allMin }));
+        if (bulkSelected.size > 0) clearBulkSelect();
+        return;
+      }
+
+      // p: 確認待ちトグル
+      if (e.key === "p") {
+        e.preventDefault();
+        const targets = bulkSelected.size > 0 ? [...bulkSelected] : [selectedTaskId];
+        const allPending = targets.every((id) => tasks.find((t) => t.id === id)?.isPending);
+        targets.forEach((id) => updateTask(id, { isPending: !allPending }));
         if (bulkSelected.size > 0) clearBulkSelect();
         return;
       }
@@ -295,6 +525,15 @@ function AppInner() {
       updateTask,
       reorderTasks,
       focusInput,
+      focusPhase,
+      focusMinutes,
+      focusTimeLeft,
+      startFocus,
+      cancelFocusSetup,
+      setFocusEndMode,
+      setFocusElapsed,
+      setShowFocusEnd,
+      setFocusPhase,
     ],
   );
 
@@ -313,14 +552,6 @@ function AppInner() {
 
   return (
     <div className="h-full flex flex-col bg-appbg relative">
-      {/* フォーカスモード中のオーバーレイ（ヘッダー/入力欄をdimに） */}
-      {focusedTaskId && (
-        <div
-          className="absolute inset-0 bg-appbg/60 z-10 pointer-events-none"
-          style={{ bottom: "auto", height: "calc(100% - 160px)" }}
-        />
-      )}
-
       <Header onOpenSettings={() => setShowSettings(true)} />
       <TaskInput />
       <div className="px-3 py-2 flex items-center justify-between text-[11px] text-subink">
@@ -340,9 +571,12 @@ function AppInner() {
             ↕ {lang === "ja" ? "並び替えモード" : "Reorder mode"}
           </span>
         )}
-        {focusedTaskId && (
-          <span className="text-accent text-[11px] font-medium">
+        {focusedTaskId && focusPhase === "running" && (
+          <span className="text-accent text-[11px] font-medium flex items-center gap-1.5">
             {t(lang, "focusMode")}
+            <span className="font-mono opacity-70">
+              {String(Math.floor(focusTimeLeft / 60)).padStart(2, "0")}:{String(focusTimeLeft % 60).padStart(2, "0")}
+            </span>
           </span>
         )}
       </div>
@@ -352,10 +586,37 @@ function AppInner() {
       </main>
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      {focusPhase === "setup" && (
+        <FocusTimerSetup
+          minutes={focusMinutes}
+          lang={lang}
+          onChangeMinutes={setFocusMinutes}
+          onStart={startFocus}
+          onCancel={cancelFocusSetup}
+        />
+      )}
+      {showFocusEnd && (
+        <FocusEndModal
+          mode={focusEndMode}
+          elapsedSeconds={focusElapsed}
+          lang={lang}
+          onExtend={extendFocus}
+          onFinish={endFocus}
+          onContinue={() => setShowFocusEnd(false)}
+        />
+      )}
       {toast && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 glass rounded-lg shadow-cardHover px-4 py-2 text-[12px] text-danger fade-in">
           {toast}
         </div>
+      )}
+      {showCloseConfirm && (
+        <CloseConfirmModal
+          remainingCount={tasks.filter((t) => t.status === "todo" && t.isMinimum).length}
+          lang={lang}
+          onClose={async () => { await getCurrentWindow().close(); }}
+          onCancel={() => setShowCloseConfirm(false)}
+        />
       )}
     </div>
   );

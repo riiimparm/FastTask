@@ -32,6 +32,16 @@ input, textarea {
   font-family: inherit;
 }
 
+input:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 1.5px rgba(0,0,0,0.55), 0 0 16px 4px rgba(0,0,0,0.10);
+}
+
+html.dark input:focus,
+html.dark textarea:focus {
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,0.55), 0 0 16px 4px rgba(255,255,255,0.10);
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: saturate(180%) blur(20px);
@@ -186,6 +196,16 @@ html.dark .task-bulk-bg {
   100% { transform: scale(1); filter: brightness(1); }
 }
 .copy-flash { animation: copy-flash 0.38s ease-out; }
+
+@keyframes task-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-5px); }
+  40%  { transform: translateX(5px); }
+  60%  { transform: translateX(-4px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+.task-shake { animation: task-shake 0.35s ease-out; }
 
 .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }

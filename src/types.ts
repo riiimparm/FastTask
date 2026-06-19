@@ -12,12 +12,13 @@ export interface Task {
   completedAt?: string;
   order: number;
   isMinimum?: boolean;
+  isPending?: boolean;
+  parentId?: string;
 }
 
 export interface Tag {
   id: string;
   name: string;
-  alias?: string;
   color: string;
   keywords: string[];
 }
@@ -32,6 +33,7 @@ export interface Settings {
   copyGroupingEnabled: boolean;
   showDueDate: boolean;
   focusShortcut: string;
+  lastFocusMinutes: number;
   theme: Theme;
   language: Language;
 }
@@ -50,8 +52,9 @@ export const defaultSettings: Settings = {
   autoDeleteOldCompleted: true,
   groupingEnabled: true,
   copyGroupingEnabled: true,
-  showDueDate: false,
+  showDueDate: true,
   focusShortcut: "",
+  lastFocusMinutes: 25,
   theme: "system",
   language: "ja",
 };

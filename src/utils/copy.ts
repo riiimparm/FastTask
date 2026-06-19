@@ -1,6 +1,7 @@
 import { Language, Tag, Task } from "../types";
 import { todayIso, isSameDay } from "./project";
 import { t as tr } from "../i18n";
+import { buildDfsOrder, getDepth } from "./taskTree";
 
 function bodyOf(t: Task): string {
   if (t.projectName) {
@@ -16,7 +17,7 @@ function tagsSuffix(t: Task, tagsById: Map<string, Tag>): string {
   for (const id of t.tags) {
     const tag = tagsById.get(id);
     if (!tag) continue;
-    const label = tag.alias && tag.alias.trim() ? tag.alias : tag.name;
+    const label = tag.name;
     parts.push(`#${label}`);
   }
   return parts.length ? " " + parts.join(" ") : "";
@@ -53,6 +54,42 @@ export function buildTodayCompletedMarkdown(
     return header + lines.join("\n") + "\n";
   }
   return buildGroupedMarkdown(done, tagsById, includeUrl, lang, header, "-");
+}
+
+function buildGroupedMarkdownWithDepth(
+  tasks: Task[],
+  tagsById: Map<string, Tag>,
+  includeUrl: boolean,
+  lang: Language,
+  header: string,
+  prefix: string,
+  allTasks: Task[],
+): string {
+  const groups = new Map<string, Task[]>();
+  for (const t of tasks) {
+    const key = t.projectName ?? "__none__";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(t);
+  }
+  const ordered: string[] = [];
+  const keys = Array.from(groups.keys()).filter((k) => k !== "__none__").sort();
+  for (const k of keys) {
+    ordered.push(`### ${k}`);
+    for (const t of groups.get(k)!) {
+      const indent = "  ".repeat(getDepth(t, allTasks));
+      ordered.push(`${indent}${prefix} ${formatTaskLine(t, tagsById, includeUrl)}`);
+    }
+    ordered.push("");
+  }
+  if (groups.has("__none__")) {
+    ordered.push(`### ${tr(lang, "uncategorized")}`);
+    for (const t of groups.get("__none__")!) {
+      const indent = "  ".repeat(getDepth(t, allTasks));
+      ordered.push(`${indent}${prefix} ${formatTaskLine(t, tagsById, includeUrl)}`);
+    }
+    ordered.push("");
+  }
+  return header + ordered.join("\n").trimEnd() + "\n";
 }
 
 function buildGroupedMarkdown(
@@ -108,14 +145,18 @@ export function buildTodoMarkdown(
   grouping: boolean,
   lang: Language = "ja",
 ): string {
-  const todo = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
+  const todo = buildDfsOrder(tasks.filter((t) => t.status === "todo"));
   const tagsById = new Map(tags.map((t) => [t.id, t]));
   const header = `## ${tr(lang, "todoHeading")}\n\n`;
   if (!grouping) {
     if (todo.length === 0) return header;
-    return header + todo.map((t) => `- [ ] ${formatTaskLine(t, tagsById, includeUrl)}`).join("\n") + "\n";
+    const lines = todo.map((t) => {
+      const indent = "  ".repeat(getDepth(t, tasks));
+      return `${indent}- [ ] ${formatTaskLine(t, tagsById, includeUrl)}`;
+    });
+    return header + lines.join("\n") + "\n";
   }
-  return buildGroupedMarkdown(todo, tagsById, includeUrl, lang, header, "- [ ]");
+  return buildGroupedMarkdownWithDepth(todo, tagsById, includeUrl, lang, header, "- [ ]", tasks);
 }
 
 export function countTodayCompleted(tasks: Task[]): number {

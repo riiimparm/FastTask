@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DayPicker } from "react-day-picker";
@@ -9,6 +9,7 @@ import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
 import { todayIso } from "../utils/project";
 import { t } from "../i18n";
+import { getDepth, hasUndoneDescendants } from "../utils/taskTree";
 
 interface Props {
   task: Task;
@@ -17,6 +18,7 @@ interface Props {
 
 export function TaskItem({ task, draggable = true }: Props) {
   const tags = useStore((s) => s.tags);
+  const allTasks = useStore((s) => s.tasks);
   const settings = useStore((s) => s.settings);
   const updateTask = useStore((s) => s.updateTask);
   const toggleTask = useStore((s) => s.toggleTask);
@@ -26,7 +28,10 @@ export function TaskItem({ task, draggable = true }: Props) {
   const grouping = settings.groupingEnabled;
   const showDueDate = settings.showDueDate ?? false;
 
-  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId } = useUiContext();
+  const depth = useMemo(() => getDepth(task, allTasks), [task, allTasks]);
+  const isLocked = useMemo(() => hasUndoneDescendants(task.id, allTasks), [task.id, allTasks]);
+
+  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId } = useUiContext();
   const isSelected = selectedTaskId === task.id;
   const isFocused = focusedTaskId === task.id;
   const isBulkSelected = bulkSelected.has(task.id);
@@ -118,19 +123,29 @@ export function TaskItem({ task, draggable = true }: Props) {
   return (
     <div
       ref={sortable.setNodeRef}
-      style={style}
+      style={{ ...style, paddingLeft: depth > 0 ? `${depth * 20 + 8}px` : undefined }}
       data-project={task.projectName || undefined}
       onClick={() => setSelectedTaskId(task.id)}
-      className={`group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
+      className={`relative group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
         border-l-[3px]
+        ${vibratingTaskId === task.id ? "task-shake" : ""}
         ${completing ? "task-sweep-left" : ""}
         ${isSelected && !isReorderMode ? "border-black/30 dark:border-white/50 task-selected-bg" : ""}
         ${isBulkSelected ? "border-black/20 dark:border-white/35 task-bulk-bg" : ""}
-        ${isFocused && !isSelected ? "border-black/25 dark:border-white/40" : ""}
+        ${isFocused ? "border-black/25 dark:border-white/40 shadow-[0_0_18px_3px_rgba(255,220,80,0.13),0_2px_8px_rgba(0,0,0,0.07)]" : ""}
         ${isReorderMode && isSelected ? "border-black/25 dark:border-white/35 task-bulk-bg" : ""}
         ${!isSelected && !isBulkSelected && !isFocused ? "border-transparent" : ""}
+        ${focusedTaskId && !isFocused ? "opacity-30 pointer-events-none select-none" : ""}
+        ${task.isPending && !focusedTaskId ? "opacity-10" : ""}
       `}
     >
+      {depth > 0 && Array.from({ length: depth }, (_, i) => (
+        <span
+          key={i}
+          className="absolute top-0 bottom-0 w-[1.5px] rounded-full bg-black/12 dark:bg-white/15 pointer-events-none"
+          style={{ left: `${i * 20 + 11}px` }}
+        />
+      ))}
       {draggable && (
         <button
           {...sortable.attributes}
@@ -148,10 +163,17 @@ export function TaskItem({ task, draggable = true }: Props) {
 
       <div className="relative flex-shrink-0">
         <button
-          onClick={handleToggle}
+          onClick={isLocked ? undefined : handleToggle}
+          title={isLocked ? t(lang, "childrenPending") : undefined}
           className={`w-[17px] h-[17px] rounded-[3px] border-2 flex items-center justify-center transition-all ${
-            task.status === "done"
+            isLocked
+              ? "border-black/15 dark:border-white/15 cursor-not-allowed opacity-40"
+              : task.status === "done"
               ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
+              : task.isMinimum
+              ? "border-black hover:border-black/70 dark:border-white dark:hover:border-white/80"
+              : task.isPending
+              ? "border-black/15 dark:border-white/15"
               : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
           }`}
         >
@@ -186,15 +208,21 @@ export function TaskItem({ task, draggable = true }: Props) {
               setEditValue(task.title);
               setEditing(true);
             }}
-            className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : ""}`}
+            className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : task.isPending ? "text-subink" : ""} ${task.isMinimum && task.status !== "done" ? "font-bold" : ""}`}
           >
-            {task.isMinimum && (
-              <span className="text-subink text-[10px] shrink-0" title={lang === "ja" ? "今日の最低限" : "Min. task"}>★</span>
-            )}
+
             {task.projectName && !grouping && (
               <span className="opacity-40">:{task.projectName} </span>
             )}
             {body || <span className="text-subink italic">{t(lang, "untitled")}</span>}
+            {task.isPending && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium tracking-wide opacity-60 shrink-0">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/>
+                </svg>
+                AWAITING...
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -206,8 +234,9 @@ export function TaskItem({ task, draggable = true }: Props) {
           return (
             <span
               key={id}
-              className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/8 text-subink dark:bg-white/10"
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-black/8 text-subink dark:bg-white/10"
             >
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tag.color }} />
               {tag.name}
             </span>
           );
@@ -220,8 +249,9 @@ export function TaskItem({ task, draggable = true }: Props) {
             title={task.url}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
           </button>
         )}
@@ -259,7 +289,8 @@ export function TaskItem({ task, draggable = true }: Props) {
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-black/5 text-[12px]"
                     >
                       <span
-                        className="w-3 h-3 rounded bg-black/20 dark:bg-white/20"
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ background: tag.color }}
                       />
                       <span className="flex-1 text-left">{tag.name}</span>
                       {active && (

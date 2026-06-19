@@ -6,42 +6,50 @@ interface Props {
   onClose: () => void;
 }
 
-const SHORTCUTS_JA = [
-  ["j / ↓", "次のタスクへ移動"],
-  ["k / ↑", "前のタスクへ移動"],
-  ["Enter", "フォーカスモード（そのタスクのみ表示）"],
-  ["フォーカス中 Enter", "タスクをインライン編集"],
-  ["x", "完了トグル"],
-  ["Space", "並び替えモード"],
-  ["並び替え中 ↑↓", "タスクを上下に移動"],
-  ["Space / Esc", "並び替えモード終了"],
-  ["m", "今日の最低限タスクをトグル"],
-  ["Shift + j/k", "複数選択に追加"],
-  ["Delete", "選択タスクを削除"],
-  ["Escape", "モード解除 → 選択解除"],
-  ["Ctrl + Z", "直前操作を元に戻す"],
-  ["↓ (入力欄から)", "リストへ移動"],
-  ["Esc (リストから)", "入力欄へ戻る"],
-  ["?", "このヘルプを開く/閉じる"],
+type ShortcutRow = [string, string] | null;
+
+const SHORTCUTS_JA: ShortcutRow[] = [
+  ["j / ↓", "次のタスクへ"],
+  ["k / ↑", "前のタスクへ"],
+  ["Shift + j/k ↑/↓", "複数選択"],
+  null,
+  ["x", "完了"],
+  ["Delete", "削除"],
+  ["Space", "並び替え"],
+  null,
+  ["Enter", "フォーカスする"],
+  ["m", "Mustにする"],
+  ["p", "Pendingにする"],
+  ["Tab", "サブタスクにする"],
+  ["Shift + Tab", "サブタスク解除"],
+  null,
+  ["/", "タスク入力"],
+  ["Escape", "切り替え"],
+  ["⌘ + Z", "元に戻す"],
+  null,
+  ["?", "ヘルプ"],
 ];
 
-const SHORTCUTS_EN = [
+const SHORTCUTS_EN: ShortcutRow[] = [
   ["j / ↓", "Next task"],
   ["k / ↑", "Prev task"],
-  ["Enter", "Focus mode (show only this task)"],
-  ["Focus + Enter", "Inline edit"],
-  ["x", "Toggle completion"],
-  ["Space", "Reorder mode"],
-  ["Reorder ↑↓", "Move task up/down"],
-  ["Space / Esc", "Exit reorder mode"],
-  ["m", "Toggle min. task"],
-  ["Shift + j/k", "Multi-select"],
-  ["Delete", "Delete selected task"],
-  ["Escape", "Clear mode → Clear selection"],
-  ["Ctrl + Z", "Undo last action"],
-  ["↓ (from input)", "Move to list"],
-  ["Esc (from list)", "Back to input"],
-  ["?", "Open/close this help"],
+  ["Shift + j/k ↑/↓", "Multi-select"],
+  null,
+  ["x", "Complete"],
+  ["Delete", "Delete"],
+  ["Space", "Reorder"],
+  null,
+  ["Enter", "Focus"],
+  ["m", "Set as Must"],
+  ["p", "Set as Pending"],
+  ["Tab", "Make subtask"],
+  ["Shift + Tab", "Unindent subtask"],
+  null,
+  ["/", "Input task"],
+  ["Escape", "Step back"],
+  ["⌘ + Z", "Undo"],
+  null,
+  ["?", "Help"],
 ];
 
 export function ShortcutsModal({ onClose }: Props) {
@@ -84,16 +92,20 @@ export function ShortcutsModal({ onClose }: Props) {
         <div className="px-5 py-3">
           <table className="w-full text-[12px]">
             <tbody>
-              {shortcuts.map(([key, desc]) => (
-                <tr key={key} className="border-b border-black/5 last:border-0">
-                  <td className="py-2 pr-4 w-[160px]">
-                    <kbd className="bg-black/5 rounded px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap">
-                      {key}
-                    </kbd>
-                  </td>
-                  <td className="py-2 text-subink">{desc}</td>
-                </tr>
-              ))}
+              {shortcuts.map((row, i) =>
+                row === null ? (
+                  <tr key={`gap-${i}`}><td colSpan={2} className="py-4" /></tr>
+                ) : (
+                  <tr key={row[0]} className="border-b border-black/5 last:border-0">
+                    <td className="py-2 pr-4 w-[160px]">
+                      <kbd className="bg-black/5 rounded px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap">
+                        {row[0]}
+                      </kbd>
+                    </td>
+                    <td className="py-2 text-subink">{row[1]}</td>
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
         </div>

@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
 import { Popover } from "./Popover";
 import { parseProjectFromInput } from "../utils/project";
+import { parseDateFromText, formatDateShort, dateToIso } from "../utils/parseDate";
 import { t } from "../i18n";
 
 export function TaskInput() {
@@ -70,12 +71,43 @@ export function TaskInput() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  const detectedDate = useMemo(() => {
+    if (!showDueDate || due || !value.trim()) return null;
+    const { body } = parseProjectFromInput(value);
+    return parseDateFromText(body, new Date());
+  }, [showDueDate, due, value]);
+
+  const splitHintVisible = useMemo(() => {
+    if (!value.trim()) return false;
+    const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.some((part) => {
+      const withoutUrl = part.replace(/https?:\/\/\S+/g, "").trim();
+      return withoutUrl.length >= 30;
+    });
+  }, [value]);
+
   function submit() {
     if (!value.trim()) return;
-    const iso = due
-      ? `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`
-      : undefined;
-    addTask(value, iso);
+    const effectiveDue = due ?? detectedDate?.date ?? undefined;
+    const iso = effectiveDue ? dateToIso(effectiveDue) : undefined;
+
+    // 日付検出時はテキストから日付部分を除去してプロジェクトプレフィックスを再結合
+    let submitValue = value;
+    if (!due && detectedDate) {
+      const { projectName } = parseProjectFromInput(value);
+      const prefix = projectName ? `:${projectName} ` : "";
+      submitValue = prefix + detectedDate.textWithoutDate;
+    }
+
+    const parts = submitValue.split(",").map((s) => s.trim()).filter(Boolean);
+    const { projectName: firstProject } = parseProjectFromInput(parts[0] ?? "");
+    parts.forEach((part, i) => {
+      if (i > 0 && firstProject && !part.startsWith(":")) {
+        addTask(`:${firstProject} ${part}`, iso);
+      } else {
+        addTask(part, iso);
+      }
+    });
     setValue("");
     setDue(undefined);
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -85,6 +117,11 @@ export function TaskInput() {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") {
       e.preventDefault();
+      // 補完候補がある場合は Enter で選択（submit しない）
+      if (projectCandidates.length > 0) {
+        applyCandidate(projectCandidates[highlight] ?? projectCandidates[0]);
+        return;
+      }
       submit();
       return;
     }
@@ -117,6 +154,11 @@ export function TaskInput() {
     }
   }
 
+  const bulkCount = useMemo(() => {
+    const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
+    return parts.length >= 2 ? parts.length : 0;
+  }, [value]);
+
   const { projectName: parsedProject } = parseProjectFromInput(value);
   const detectedUrl = useMemo(() => {
     const m = value.match(/https?:\/\/\S+/);
@@ -127,15 +169,37 @@ export function TaskInput() {
     <div className="px-4 py-3 border-b border-black/5">
       <div className="relative flex items-center gap-2">
         <div className="flex-1 relative">
-          <input
-            ref={inputRef}
-            data-main-input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={t(lang, "placeholder")}
-            className="w-full px-3 py-2 rounded-[10px] border border-black/10 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
-          />
+          {/* コマンドパレット風フルワイド入力 */}
+          <div className="relative w-full">
+            <input
+              ref={inputRef}
+              data-main-input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={t(lang, "placeholder")}
+              className={`w-full pl-4 pr-10 py-2.5 rounded-xl bg-black/[0.055] dark:!bg-white/[0.08] border-0 outline-none transition-colors text-[13px] placeholder:text-black/30 dark:placeholder:text-white/28${bulkCount >= 2 ? " pr-16" : ""}`}
+            />
+            {bulkCount >= 2 ? (
+              <span className="absolute right-9 top-1/2 -translate-y-1/2 text-[11px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full pointer-events-none">
+                ×{bulkCount}
+              </span>
+            ) : null}
+            <button
+              onClick={submit}
+              disabled={!value.trim()}
+              className={`absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                value.trim()
+                  ? "bg-[#1C1C1E] text-[#F5F5F5] dark:bg-[#E0E0E0] dark:text-[#111111]"
+                  : "text-black/20 dark:text-white/20 cursor-not-allowed"
+              }`}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+          </div>
           {projectCandidates.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 glass rounded-card shadow-cardHover py-1 z-40 fade-in">
               {projectCandidates.map((p, i) => (
@@ -157,62 +221,44 @@ export function TaskInput() {
           )}
         </div>
         {showDueDate && (
-        <div className="relative">
-          <button
-            ref={dateBtnRef}
-            onClick={() => setShowDate((v) => !v)}
-            className={`h-9 px-2 rounded-[10px] border border-black/10 flex items-center gap-1 text-[12px] ${due ? "bg-black/8 text-ink border-black/20 dark:bg-white/10 dark:text-white dark:border-white/20" : "text-subink hover:bg-black/5"}`}
-            title={t(lang, "titleSetDue")}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            {due && (
-              <span>
-                {due.getMonth() + 1}/{due.getDate()}
-              </span>
-            )}
-          </button>
-          <Popover open={showDate} onClose={() => setShowDate(false)} anchorRef={dateBtnRef}>
-            <DayPicker
-              mode="single"
-              selected={due}
-              onSelect={(d) => {
-                setDue(d);
-                setShowDate(false);
-              }}
-            />
-            {due && (
-              <button
-                onClick={() => {
-                  setDue(undefined);
+          <div className="relative">
+            <button
+              ref={dateBtnRef}
+              onClick={() => setShowDate((v) => !v)}
+              className={`h-[42px] px-2.5 rounded-xl flex items-center gap-1.5 text-[12px] transition-colors ${due ? "bg-black/[0.055] dark:!bg-white/[0.08] text-ink" : "bg-black/[0.055] dark:!bg-white/[0.08] text-black/35 dark:text-white/35 hover:text-ink dark:hover:text-white"}`}
+              title={t(lang, "titleSetDue")}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              {due && <span>{due.getMonth() + 1}/{due.getDate()}</span>}
+            </button>
+            <Popover open={showDate} onClose={() => setShowDate(false)} anchorRef={dateBtnRef}>
+              <DayPicker
+                mode="single"
+                selected={due}
+                onSelect={(d) => {
+                  setDue(d);
                   setShowDate(false);
                 }}
-                className="w-full text-[12px] py-1 text-subink hover:bg-black/5 rounded"
-              >
-                {t(lang, "clear")}
-              </button>
-            )}
-          </Popover>
-        </div>
+              />
+              {due && (
+                <button
+                  onClick={() => {
+                    setDue(undefined);
+                    setShowDate(false);
+                  }}
+                  className="w-full text-[12px] py-1 text-subink hover:bg-black/5 rounded"
+                >
+                  {t(lang, "clear")}
+                </button>
+              )}
+            </Popover>
+          </div>
         )}
-        <button
-          onClick={submit}
-          disabled={!value.trim()}
-          className={`h-9 w-9 rounded-[10px] flex items-center justify-center transition-all ${
-            value.trim()
-              ? "bg-[#1C1C1E] text-[#F5F5F5] hover:bg-black dark:bg-[#E0E0E0] dark:text-[#111111] dark:hover:bg-[#F5F5F5]"
-              : "bg-black/10 text-subink cursor-not-allowed"
-          }`}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-        </button>
       </div>
       {/* プロジェクト表示とタグヒント */}
       {(parsedProject || matchedTags.length > 0) && (
@@ -232,6 +278,14 @@ export function TaskInput() {
           ))}
         </div>
       )}
+      {detectedDate && (
+        <div className="text-[11px] text-blue-500 dark:text-blue-400 mt-0.5 pl-1 flex items-center gap-1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          {formatDateShort(detectedDate.date, lang)}
+        </div>
+      )}
       {detectedUrl && (
         <div className="text-[11px] text-accent mt-0.5 pl-1 flex items-center gap-1">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -239,6 +293,14 @@ export function TaskInput() {
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
           {t(lang, "urlDetected")}: <span className="opacity-70 truncate max-w-[260px] inline-block align-bottom">{detectedUrl}</span>
+        </div>
+      )}
+      {splitHintVisible && (
+        <div className="text-[11px] text-amber-500 mt-0.5 pl-1 flex items-center gap-1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {t(lang, "splitHint")}
         </div>
       )}
     </div>

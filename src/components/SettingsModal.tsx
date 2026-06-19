@@ -111,8 +111,42 @@ export function SettingsModal({ open, onClose }: Props) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [shortcutInput, setShortcutInput] = useState(settings.focusShortcut);
   const [shortcutError, setShortcutError] = useState("");
+  const [capturing, setCapturing] = useState(false);
 
   if (!open) return null;
+
+  function buildShortcut(e: React.KeyboardEvent): string {
+    const modifiers: string[] = [];
+    if (e.ctrlKey || e.metaKey) modifiers.push("CommandOrControl");
+    if (e.altKey) modifiers.push("Alt");
+    if (e.shiftKey) modifiers.push("Shift");
+    const skip = ["Control", "Meta", "Alt", "Shift", "OS"];
+    if (skip.includes(e.key)) return "";
+    const keyNames: Record<string, string> = {
+      " ": "Space",
+      Enter: "Return",
+      ArrowUp: "Up",
+      ArrowDown: "Down",
+      ArrowLeft: "Left",
+      ArrowRight: "Right",
+    };
+    const key = keyNames[e.key] ?? e.key.toUpperCase();
+    if (!modifiers.length) return "";
+    return [...modifiers, key].join("+");
+  }
+
+  function prettyShortcut(s: string): string {
+    if (!s) return "";
+    return s
+      .replace("CommandOrControl", "⌘")
+      .replace("Control", "⌃")
+      .replace("Shift", "⇧")
+      .replace("Alt", "⌥")
+      .replace("Return", "↵")
+      .replace("Space", "␣")
+      .split("+")
+      .join("");
+  }
 
   async function saveShortcut() {
     const val = shortcutInput.trim();
@@ -197,20 +231,53 @@ export function SettingsModal({ open, onClose }: Props) {
               </div>
               <div className="text-[11px] text-subink">
                 {lang === "ja"
-                  ? "例: CommandOrControl+Shift+T / Alt+Space"
-                  : "e.g. CommandOrControl+Shift+T / Alt+Space"}
+                  ? "修飾キー（⌘/⌃/⌥）を含むキー組み合わせ"
+                  : "Key combo including a modifier (⌘/⌃/⌥)"}
               </div>
               <div className="flex gap-2">
-                <input
-                  value={shortcutInput}
-                  onChange={(e) => { setShortcutInput(e.target.value); setShortcutError(""); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") saveShortcut(); }}
-                  placeholder={lang === "ja" ? "未設定" : "None"}
-                  className="flex-1 px-2 py-1.5 text-[12px] rounded-md border border-black/10 outline-none"
-                />
+                {capturing ? (
+                  <input
+                    autoFocus
+                    readOnly
+                    placeholder={lang === "ja" ? "キーを押してください..." : "Press a key..."}
+                    className="flex-1 px-2 py-1.5 text-[12px] rounded-md border-2 border-accent outline-none text-subink bg-transparent"
+                    onKeyDown={(e) => {
+                      e.preventDefault();
+                      if (e.key === "Escape") { setCapturing(false); return; }
+                      const sc = buildShortcut(e);
+                      if (sc) {
+                        setShortcutInput(sc);
+                        setShortcutError("");
+                        setCapturing(false);
+                      } else {
+                        setShortcutError(lang === "ja" ? t(lang, "shortcutModifierHint") : t(lang, "shortcutModifierHint"));
+                      }
+                    }}
+                    onBlur={() => setCapturing(false)}
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setCapturing(true); setShortcutError(""); }}
+                    className="flex-1 px-2 py-1.5 text-[12px] rounded-md border border-black/10 dark:border-white/10 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  >
+                    {shortcutInput
+                      ? <span className="font-mono text-[15px] tracking-wider">{prettyShortcut(shortcutInput)}</span>
+                      : <span className="text-subink">{lang === "ja" ? "クリックして設定..." : "Click to set..."}</span>
+                    }
+                  </button>
+                )}
+                {shortcutInput && !capturing && (
+                  <button
+                    onClick={() => { setShortcutInput(""); setShortcutError(""); }}
+                    className="px-2 py-1.5 text-[12px] rounded-md bg-black/8 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20"
+                  >
+                    {lang === "ja" ? "クリア" : "Clear"}
+                  </button>
+                )}
                 <button
                   onClick={saveShortcut}
-                  className="px-3 py-1.5 text-[12px] rounded-md bg-black/8 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20"
+                  disabled={capturing}
+                  className="px-3 py-1.5 text-[12px] rounded-md bg-black/8 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20 disabled:opacity-40"
                 >
                   {lang === "ja" ? "保存" : "Save"}
                 </button>
