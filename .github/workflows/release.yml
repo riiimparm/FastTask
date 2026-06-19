@@ -25,7 +25,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const tagName = context.ref.replace('refs/tags/', '');
+            const tagName = context.ref.startsWith('refs/tags/') 
+              ? context.ref.replace('refs/tags/', '') 
+              : context.payload.inputs.tag_name;
 
             // pr-release-relation.yml からPR番号を取得
             let prNumbers = [];
