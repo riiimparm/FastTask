@@ -160,18 +160,23 @@ function AppInner() {
     return () => window.removeEventListener("focus", onWindowFocus);
   }, [selectedTaskId, focusedTaskId, mainInputRef]);
 
-  // ウィンドウ閉じる前に isMinimum 未完了タスクがあれば確認モーダル表示
+  // tasks の最新値を ref で保持（クローズハンドラが stale にならないように）
+  const tasksRef = useRef(tasks);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  // ウィンドウ閉じる前に isMinimum 未完了タスクがあれば確認モーダル表示（1度だけ登録）
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     getCurrentWindow().onCloseRequested(async (event) => {
-      const hasMinimum = tasks.some((t) => t.status === "todo" && t.isMinimum);
+      const hasMinimum = tasksRef.current.some((t) => t.status === "todo" && t.isMinimum);
       if (hasMinimum) {
         event.preventDefault();
         setShowCloseConfirm(true);
       }
     }).then((fn) => { unlisten = fn; });
     return () => { unlisten?.(); };
-  }, [tasks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const focusInput = useCallback(() => {
     mainInputRef.current?.focus();
