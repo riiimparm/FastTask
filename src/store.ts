@@ -222,9 +222,12 @@ export const useStore = create<State>((set, get) => ({
         if (t.id !== id) return t;
         const next = { ...t, ...patch };
         if (patch.title !== undefined) {
-          const { projectName, body } = parseProjectFromInput(patch.title);
+          const { text: withoutUrl, url: autoUrl } = extractUrl(patch.title.trim());
+          const { projectName, body } = parseProjectFromInput(withoutUrl);
           next.title = projectName ? `:${projectName} ${body}` : body;
           next.projectName = projectName;
+          if (autoUrl) next.url = autoUrl;
+          next.tags = autoTagsFor(body || next.title, get().tags);
         }
         return next;
       }),

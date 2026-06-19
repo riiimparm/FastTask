@@ -130,7 +130,7 @@ export function TaskItem({ task, draggable = true }: Props) {
         ${isReorderMode && isSelected ? "border-black/25 dark:border-white/35 task-bulk-bg" : ""}
         ${!isSelected && !isBulkSelected && !isFocused ? "border-transparent" : ""}
         ${focusedTaskId && !isFocused ? "opacity-30 pointer-events-none select-none" : ""}
-        ${task.isPending && !focusedTaskId ? "opacity-40" : ""}
+        ${task.isPending && !focusedTaskId ? "opacity-10" : ""}
       `}
     >
       {draggable && (
@@ -156,6 +156,8 @@ export function TaskItem({ task, draggable = true }: Props) {
               ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
               : task.isMinimum
               ? "border-black hover:border-black/70 dark:border-white dark:hover:border-white/80"
+              : task.isPending
+              ? "border-black/15 dark:border-white/15"
               : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
           }`}
         >
@@ -190,7 +192,7 @@ export function TaskItem({ task, draggable = true }: Props) {
               setEditValue(task.title);
               setEditing(true);
             }}
-            className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : ""}`}
+            className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : task.isPending ? "text-subink" : ""} ${task.isMinimum && task.status !== "done" ? "font-bold" : ""}`}
           >
 
             {task.projectName && !grouping && (
@@ -198,9 +200,12 @@ export function TaskItem({ task, draggable = true }: Props) {
             )}
             {body || <span className="text-subink italic">{t(lang, "untitled")}</span>}
             {task.isPending && (
-              <svg className="shrink-0 opacity-50" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" title={lang === "ja" ? "確認待ち" : "Pending"}>
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium tracking-wide opacity-60 shrink-0">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/>
+                </svg>
+                AWAITING...
+              </span>
             )}
           </div>
         )}
@@ -213,8 +218,9 @@ export function TaskItem({ task, draggable = true }: Props) {
           return (
             <span
               key={id}
-              className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/8 text-subink dark:bg-white/10"
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-black/8 text-subink dark:bg-white/10"
             >
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tag.color }} />
               {tag.name}
             </span>
           );
@@ -266,7 +272,8 @@ export function TaskItem({ task, draggable = true }: Props) {
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-black/5 text-[12px]"
                     >
                       <span
-                        className="w-3 h-3 rounded bg-black/20 dark:bg-white/20"
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ background: tag.color }}
                       />
                       <span className="flex-1 text-left">{tag.name}</span>
                       {active && (

@@ -17,6 +17,7 @@ function AppInner() {
   const loaded = useStore((s) => s.loaded);
   const grouping = useStore((s) => s.settings.groupingEnabled);
   const lang = useStore((s) => s.settings.language);
+  const lastFocusMinutes = useStore((s) => s.settings.lastFocusMinutes);
   const updateSettings = useStore((s) => s.updateSettings);
   const toast = useStore((s) => s.toast);
   const setToast = useStore((s) => s.setToast);
@@ -54,6 +55,7 @@ function AppInner() {
   const [focusEndMode, setFocusEndMode] = useState<"ended" | "confirm">("ended");
   const focusMinutesRef = useRef(focusMinutes);
   useEffect(() => { focusMinutesRef.current = focusMinutes; }, [focusMinutes]);
+  useEffect(() => { setFocusMinutes(lastFocusMinutes ?? 25); }, []);
 
   // タイマーカウントダウン
   useEffect(() => {
@@ -81,6 +83,7 @@ function AppInner() {
     setFocusElapsed(0);
     setTimerActive(true);
     setFocusPhase("running");
+    updateSettings({ lastFocusMinutes: focusMinutesRef.current });
     osNotify("FastTask", lang === "ja" ? "フォーカス開始" : "Focus started");
   }
 

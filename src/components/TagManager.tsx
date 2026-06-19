@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import { Tag } from "../types";
 import { t } from "../i18n";
 
-const DEFAULT_COLORS = ["#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#007AFF", "#5856D6", "#AF52DE", "#FF2D55"];
+const PALETTE = ["#8E8E93", "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#007AFF", "#5856D6", "#AF52DE", "#FF2D55"];
 
 function TagRow({ tag }: { tag: Tag }) {
   const upsert = useStore((s) => s.upsertTag);
@@ -12,7 +12,6 @@ function TagRow({ tag }: { tag: Tag }) {
   const lang = useStore((s) => s.settings.language);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(tag.name);
-  const [alias, setAlias] = useState(tag.alias ?? "");
   const [color, setColor] = useState(tag.color);
   const [keywords, setKeywords] = useState(tag.keywords.join(", "));
 
@@ -20,7 +19,6 @@ function TagRow({ tag }: { tag: Tag }) {
     upsert({
       id: tag.id,
       name: name.trim() || tag.name,
-      alias: alias.trim() || undefined,
       color,
       keywords: keywords
         .split(/[,\n]/)
@@ -33,11 +31,8 @@ function TagRow({ tag }: { tag: Tag }) {
   if (!editing) {
     return (
       <div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-black/5">
-        <span className="w-3 h-3 rounded" style={{ background: tag.color }} />
+        <span className="w-3 h-3 rounded-full shrink-0" style={{ background: tag.color }} />
         <span className="text-[13px] flex-1">{tag.name}</span>
-        {tag.alias && (
-          <span className="text-[11px] text-subink">#{tag.alias}</span>
-        )}
         <span className="text-[11px] text-subink truncate max-w-[120px]">
           {tag.keywords.join(", ")}
         </span>
@@ -66,28 +61,16 @@ function TagRow({ tag }: { tag: Tag }) {
           placeholder={t(lang, "tagNamePh")}
           className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent"
         />
-        <input
-          value={alias}
-          onChange={(e) => setAlias(e.target.value)}
-          placeholder={t(lang, "aliasPh")}
-          className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent"
-        />
       </div>
-      <div className="flex items-center gap-1">
-        {DEFAULT_COLORS.map((c) => (
+      <div className="flex items-center gap-1 flex-wrap">
+        {PALETTE.map((c) => (
           <button
             key={c}
             onClick={() => setColor(c)}
-            className={`w-5 h-5 rounded ${color === c ? "ring-2 ring-offset-1 ring-accent" : ""}`}
+            className={`w-5 h-5 rounded-full ${color === c ? "ring-2 ring-offset-1 ring-black/40 dark:ring-white/60" : ""}`}
             style={{ background: c }}
           />
         ))}
-        <input
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className="w-6 h-6 border-none cursor-pointer"
-        />
       </div>
       <textarea
         value={keywords}
@@ -120,14 +103,12 @@ export function TagManager() {
   const lang = useStore((s) => s.settings.language);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [alias, setAlias] = useState("");
-  const [color, setColor] = useState(DEFAULT_COLORS[4]);
+  const [color, setColor] = useState(PALETTE[0]);
   const [keywords, setKeywords] = useState("");
 
   function reset() {
     setName("");
-    setAlias("");
-    setColor(DEFAULT_COLORS[4]);
+    setColor(PALETTE[0]);
     setKeywords("");
     setAdding(false);
   }
@@ -137,7 +118,6 @@ export function TagManager() {
     upsert({
       id: uuid(),
       name: name.trim(),
-      alias: alias.trim() || undefined,
       color,
       keywords: keywords
         .split(/[,\n]/)
@@ -170,28 +150,16 @@ export function TagManager() {
               autoFocus
               className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent"
             />
-            <input
-              value={alias}
-              onChange={(e) => setAlias(e.target.value)}
-              placeholder={t(lang, "aliasPh")}
-              className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent"
-            />
           </div>
-          <div className="flex items-center gap-1">
-            {DEFAULT_COLORS.map((c) => (
+          <div className="flex items-center gap-1 flex-wrap">
+            {PALETTE.map((c) => (
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`w-5 h-5 rounded ${color === c ? "ring-2 ring-offset-1 ring-accent" : ""}`}
+                className={`w-5 h-5 rounded-full ${color === c ? "ring-2 ring-offset-1 ring-black/40 dark:ring-white/60" : ""}`}
                 style={{ background: c }}
               />
             ))}
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="w-6 h-6 border-none cursor-pointer"
-            />
           </div>
           <textarea
             value={keywords}

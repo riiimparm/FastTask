@@ -18,7 +18,6 @@ export interface Task {
 export interface Tag {
   id: string;
   name: string;
-  alias?: string;
   color: string;
   keywords: string[];
 }
@@ -33,6 +32,7 @@ export interface Settings {
   copyGroupingEnabled: boolean;
   showDueDate: boolean;
   focusShortcut: string;
+  lastFocusMinutes: number;
   theme: Theme;
   language: Language;
 }
@@ -53,6 +53,7 @@ export const defaultSettings: Settings = {
   copyGroupingEnabled: true,
   showDueDate: false,
   focusShortcut: "",
+  lastFocusMinutes: 25,
   theme: "system",
   language: "ja",
 };

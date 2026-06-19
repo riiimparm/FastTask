@@ -16,7 +16,7 @@ function tagsSuffix(t: Task, tagsById: Map<string, Tag>): string {
   for (const id of t.tags) {
     const tag = tagsById.get(id);
     if (!tag) continue;
-    const label = tag.alias && tag.alias.trim() ? tag.alias : tag.name;
+    const label = tag.name;
     parts.push(`#${label}`);
   }
   return parts.length ? " " + parts.join(" ") : "";
