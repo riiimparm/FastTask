@@ -17,6 +17,8 @@ interface UiContextValue {
   setFocusPhase: (p: FocusPhase) => void;
   setFocusMinutes: React.Dispatch<React.SetStateAction<number>>;
   mainInputRef: React.RefObject<HTMLInputElement | null>;
+  vibratingTaskId: string | null;
+  triggerVibration: (id: string) => void;
 }
 
 const UiContext = createContext<UiContextValue | null>(null);
@@ -29,6 +31,14 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
   const [focusPhase, setFocusPhase] = useState<FocusPhase>("idle");
   const [focusMinutes, setFocusMinutes] = useState(25);
   const mainInputRef = useRef<HTMLInputElement | null>(null);
+  const [vibratingTaskId, setVibratingTaskId] = useState<string | null>(null);
+  const vibrateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function triggerVibration(id: string) {
+    if (vibrateTimerRef.current) clearTimeout(vibrateTimerRef.current);
+    setVibratingTaskId(id);
+    vibrateTimerRef.current = setTimeout(() => setVibratingTaskId(null), 400);
+  }
 
   function toggleBulkSelect(id: string) {
     setBulkSelected((prev) => {
@@ -60,6 +70,8 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
         setFocusPhase,
         setFocusMinutes,
         mainInputRef,
+        vibratingTaskId,
+        triggerVibration,
       }}
     >
       {children}

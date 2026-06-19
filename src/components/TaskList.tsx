@@ -19,6 +19,7 @@ import { useUiContext } from "../context/UiContext";
 import { Task } from "../types";
 import { TaskItem } from "./TaskItem";
 import { t } from "../i18n";
+import { buildDfsOrder, getDescendants } from "../utils/taskTree";
 
 const NONE_KEY = "__none__";
 
@@ -110,15 +111,16 @@ export function TaskList() {
   const { focusedTaskId } = useUiContext();
 
   const todoTasks = useMemo(
-    () => tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order),
+    () => buildDfsOrder(tasks.filter((t) => t.status === "todo")),
     [tasks],
   );
 
-  // フォーカスモード時はそのタスクのみ表示
-  const displayTasks = useMemo(
-    () => focusedTaskId ? todoTasks.filter((t) => t.id === focusedTaskId) : todoTasks,
-    [todoTasks, focusedTaskId],
-  );
+  // フォーカスモード時：対象タスクとその子孫を表示
+  const displayTasks = useMemo(() => {
+    if (!focusedTaskId) return todoTasks;
+    const descendantIds = new Set(getDescendants(focusedTaskId, tasks).map((t) => t.id));
+    return todoTasks.filter((t) => t.id === focusedTaskId || descendantIds.has(t.id));
+  }, [todoTasks, focusedTaskId, tasks]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 

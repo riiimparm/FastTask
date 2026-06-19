@@ -79,6 +79,8 @@ const dict = {
     shortcutCapturing: "キーを押してください...",
     shortcutModifierHint: "修飾キー（⌘/⌃/⌥）を含めてください",
     pendingTask: "確認待ち",
+    childrenPending: "子タスクが残っています",
+    maxDepthReached: "これ以上深くできません",
   },
   en: {
     appTitle: "FastTask",
@@ -158,6 +160,8 @@ const dict = {
     shortcutCapturing: "Press a key...",
     shortcutModifierHint: "Include a modifier key (⌘/⌃/⌥)",
     pendingTask: "Pending",
+    childrenPending: "Complete child tasks first",
+    maxDepthReached: "Maximum depth reached",
   },
 } as const;
 

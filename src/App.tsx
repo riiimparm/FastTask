@@ -11,6 +11,7 @@ import { UiProvider, useUiContext } from "./context/UiContext";
 import { useStore } from "./store";
 import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActionCallback } from "./utils/notify";
 import { t } from "./i18n";
+import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
 
 function AppInner() {
   const init = useStore((s) => s.init);
@@ -26,6 +27,7 @@ function AppInner() {
   const deleteTask = useStore((s) => s.deleteTask);
   const updateTask = useStore((s) => s.updateTask);
   const reorderTasks = useStore((s) => s.reorderTasks);
+  const setTaskParent = useStore((s) => s.setTaskParent);
   const undo = useStore((s) => s.undo);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -46,6 +48,7 @@ function AppInner() {
     setFocusPhase,
     setFocusMinutes,
     mainInputRef,
+    triggerVibration,
   } = useUiContext();
 
   const [timerActive, setTimerActive] = useState(false);
@@ -119,13 +122,13 @@ function AppInner() {
   }, [lang]);
 
   const todoTasks = useMemo(() => {
-    const base = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
-    if (!grouping) return base;
+    const dfs = buildDfsOrder(tasks.filter((t) => t.status === "todo"));
+    if (!grouping) return dfs;
     // グルーピング ON 時は ProjectSection の表示順に合わせる
     const NONE_KEY = "__none__";
-    const sectionsMap = new Map<string, typeof base>();
+    const sectionsMap = new Map<string, typeof dfs>();
     const sectionOrder: string[] = [];
-    for (const t of base) {
+    for (const t of dfs) {
       const key = t.projectName ?? NONE_KEY;
       if (!sectionsMap.has(key)) { sectionsMap.set(key, []); sectionOrder.push(key); }
       sectionsMap.get(key)!.push(t);
@@ -203,6 +206,18 @@ function AppInner() {
         setFocusEndMode("confirm");
         setFocusElapsed(focusMinutes * 60 - focusTimeLeft);
         setShowFocusEnd(true);
+        return;
+      }
+
+      // 入力フォーム選択中に Escape → アイテム選択へ
+      if (isInput && e.key === "Escape") {
+        e.preventDefault();
+        mainInputRef.current?.blur();
+        if (selectedTaskId) {
+          // 既存の選択を維持
+        } else if (todoTasks.length > 0) {
+          setSelectedTaskId(todoTasks[0].id);
+        }
         return;
       }
 
@@ -345,14 +360,85 @@ function AppInner() {
         return;
       }
 
+      // Tab: 小タスク化 / Shift+Tab: インデント解除
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const selected = tasks.find((t) => t.id === selectedTaskId);
+        if (!selected) return;
+
+        if (e.shiftKey) {
+          // Shift+Tab: インデント解除
+          if (!selected.parentId) { triggerVibration(selectedTaskId); return; }
+          const parent = tasks.find((t) => t.id === selected.parentId);
+          const newParentId = parent?.parentId;
+          const updated = tasks.map((t) =>
+            t.id === selectedTaskId ? { ...t, parentId: newParentId } : t,
+          );
+          const dfsIds = buildDfsOrder(updated.filter((t) => t.status === "todo")).map((t) => t.id);
+          setTaskParent(selectedTaskId, newParentId, dfsIds);
+        } else {
+          // Tab: 小タスク化
+          const flatList = grouping
+            ? todoTasks.filter((t) => (t.projectName ?? null) === (selected.projectName ?? null))
+            : todoTasks;
+          const idx = flatList.findIndex((t) => t.id === selectedTaskId);
+          if (idx <= 0) { triggerVibration(selectedTaskId); return; }
+          const above = flatList[idx - 1];
+          if ((above.projectName ?? null) !== (selected.projectName ?? null)) {
+            triggerVibration(selectedTaskId); return;
+          }
+
+          // effective parent を決定：
+          //   above が同 depth → above が親（1段深くなる）
+          //   above が深い    → above の先祖をたどり selected と同 depth のものを親にする
+          //   above が浅い    → above を親（above.depth+1 になる）
+          const selectedDepth = getDepth(selected, tasks);
+          const aboveDepth = getDepth(above, tasks);
+          let effectiveParent: typeof above = above;
+          if (aboveDepth > selectedDepth) {
+            let cur = above;
+            while (getDepth(cur, tasks) > selectedDepth) {
+              const p = tasks.find((tt) => tt.id === cur.parentId);
+              if (!p) { triggerVibration(selectedTaskId); return; }
+              cur = p;
+            }
+            effectiveParent = cur;
+          }
+
+          if (selected.parentId === effectiveParent.id) { triggerVibration(selectedTaskId); return; }
+          if (getDepth(effectiveParent, tasks) + 1 >= 5) { triggerVibration(selectedTaskId); setToast(t(lang, "maxDepthReached")); return; }
+
+          const updated = tasks.map((tt) =>
+            tt.id === selectedTaskId ? { ...tt, parentId: effectiveParent.id } : tt,
+          );
+          const dfsIds = buildDfsOrder(updated.filter((tt) => tt.status === "todo")).map((tt) => tt.id);
+          setTaskParent(selectedTaskId, effectiveParent.id, dfsIds);
+        }
+        return;
+      }
+
       // x: 完了トグル
       if (e.key === "x") {
         e.preventDefault();
         if (bulkSelected.size > 0) {
+          const allLocked = [...bulkSelected].some((id) => hasUndoneDescendants(id, tasks));
+          if (allLocked) { setToast(t(lang, "childrenPending")); return; }
           bulkSelected.forEach((id) => toggleTask(id));
           clearBulkSelect();
         } else {
+          if (hasUndoneDescendants(selectedTaskId, tasks)) {
+            setToast(t(lang, "childrenPending")); return;
+          }
           toggleTask(selectedTaskId);
+          // 完了後の選択移動：上 → 下 → 入力欄
+          if (currentIdx > 0) {
+            setSelectedTaskId(todoTasks[currentIdx - 1].id);
+          } else if (currentIdx < todoTasks.length - 1) {
+            setSelectedTaskId(todoTasks[currentIdx + 1].id);
+          } else {
+            setSelectedTaskId(null);
+            focusInput();
+          }
         }
         return;
       }

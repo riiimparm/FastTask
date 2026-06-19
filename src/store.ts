@@ -12,6 +12,7 @@ import {
 } from "./types";
 import { parseProjectFromInput } from "./utils/project";
 import { osNotify } from "./utils/notify";
+import { getDescendants } from "./utils/taskTree";
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
@@ -51,6 +52,7 @@ interface State {
   deleteTask: (id: string) => void;
   reorderTasks: (idsInNewOrder: string[]) => void;
   reorderProjectSections: (projectsInOrder: (string | null)[]) => void;
+  setTaskParent: (taskId: string, parentId: string | undefined, dfsOrderedIds: string[]) => void;
   upsertTag: (tag: Tag) => void;
   deleteTag: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -204,40 +206,65 @@ export const useStore = create<State>((set, get) => ({
   toggleTask(id) {
     get().pushUndo();
     const now = new Date().toISOString();
-    set({
-      tasks: get().tasks.map((t) =>
-        t.id === id
-          ? t.status === "todo"
+    const task = get().tasks.find((t) => t.id === id);
+    if (!task) return;
+    if (task.status === "todo") {
+      // 完了時：全子孫も完了にカスケード
+      const descendantIds = new Set(getDescendants(id, get().tasks).map((t) => t.id));
+      set({
+        tasks: get().tasks.map((t) =>
+          t.id === id || descendantIds.has(t.id)
             ? { ...t, status: "done", completedAt: now }
-            : { ...t, status: "todo", completedAt: undefined }
-          : t,
-      ),
-    });
+            : t,
+        ),
+      });
+    } else {
+      set({
+        tasks: get().tasks.map((t) =>
+          t.id === id ? { ...t, status: "todo", completedAt: undefined } : t,
+        ),
+      });
+    }
     scheduleSave(get);
   },
 
   updateTask(id, patch) {
-    set({
-      tasks: get().tasks.map((t) => {
-        if (t.id !== id) return t;
-        const next = { ...t, ...patch };
-        if (patch.title !== undefined) {
-          const { text: withoutUrl, url: autoUrl } = extractUrl(patch.title.trim());
-          const { projectName, body } = parseProjectFromInput(withoutUrl);
-          next.title = projectName ? `:${projectName} ${body}` : body;
-          next.projectName = projectName;
-          if (autoUrl) next.url = autoUrl;
-          next.tags = autoTagsFor(body || next.title, get().tags);
-        }
-        return next;
-      }),
+    const tasks = get().tasks;
+    const updated = tasks.map((t) => {
+      if (t.id !== id) return t;
+      const next = { ...t, ...patch };
+      if (patch.title !== undefined) {
+        const { text: withoutUrl, url: autoUrl } = extractUrl(patch.title.trim());
+        const { projectName, body } = parseProjectFromInput(withoutUrl);
+        next.title = projectName ? `:${projectName} ${body}` : body;
+        next.projectName = projectName;
+        if (autoUrl) next.url = autoUrl;
+        next.tags = autoTagsFor(body || next.title, get().tags);
+      }
+      return next;
     });
+
+    // isPending / isMinimum の変更を子孫に伝播
+    if (patch.isPending !== undefined || patch.isMinimum !== undefined) {
+      const descendantIds = new Set(getDescendants(id, tasks).map((t) => t.id));
+      const propagated = updated.map((t) => {
+        if (!descendantIds.has(t.id)) return t;
+        const p: Partial<Task> = {};
+        if (patch.isPending !== undefined) p.isPending = patch.isPending;
+        if (patch.isMinimum !== undefined) p.isMinimum = patch.isMinimum;
+        return { ...t, ...p };
+      });
+      set({ tasks: propagated });
+    } else {
+      set({ tasks: updated });
+    }
     scheduleSave(get);
   },
 
   deleteTask(id) {
     get().pushUndo();
-    set({ tasks: get().tasks.filter((t) => t.id !== id) });
+    const descendantIds = new Set(getDescendants(id, get().tasks).map((t) => t.id));
+    set({ tasks: get().tasks.filter((t) => t.id !== id && !descendantIds.has(t.id)) });
     scheduleSave(get);
   },
 
@@ -246,6 +273,40 @@ export const useStore = create<State>((set, get) => ({
     const byId = new Map(get().tasks.map((t) => [t.id, t]));
     const others = get().tasks.filter((t) => !idsInNewOrder.includes(t.id));
     const reordered = idsInNewOrder
+      .map((id, idx) => {
+        const t = byId.get(id);
+        if (!t) return null;
+        return { ...t, order: idx };
+      })
+      .filter((x): x is Task => !!x);
+
+    // D&D後の整合チェック：child.order < parent.order なら独立化
+    const allTasks = [...others, ...reordered];
+    const orderById = new Map(allTasks.map((t) => [t.id, t.order]));
+    const consistent = allTasks.map((t) => {
+      if (!t.parentId) return t;
+      const parentOrder = orderById.get(t.parentId);
+      if (parentOrder === undefined || t.order <= parentOrder) {
+        return { ...t, parentId: undefined };
+      }
+      return t;
+    });
+
+    set({ tasks: consistent });
+    scheduleSave(get);
+  },
+
+  setTaskParent(taskId, parentId, dfsOrderedIds) {
+    get().pushUndo();
+    const tasks = get().tasks;
+    // parentId 更新
+    const withNewParent = tasks.map((t) =>
+      t.id === taskId ? { ...t, parentId } : t,
+    );
+    // DFS順で order を再割り当て
+    const byId = new Map(withNewParent.map((t) => [t.id, t]));
+    const others = withNewParent.filter((t) => !dfsOrderedIds.includes(t.id));
+    const reordered = dfsOrderedIds
       .map((id, idx) => {
         const t = byId.get(id);
         if (!t) return null;

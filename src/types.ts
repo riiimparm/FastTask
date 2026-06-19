@@ -13,6 +13,7 @@ export interface Task {
   order: number;
   isMinimum?: boolean;
   isPending?: boolean;
+  parentId?: string;
 }
 
 export interface Tag {

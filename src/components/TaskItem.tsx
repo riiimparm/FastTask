@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DayPicker } from "react-day-picker";
@@ -9,6 +9,7 @@ import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
 import { todayIso } from "../utils/project";
 import { t } from "../i18n";
+import { getDepth, hasUndoneDescendants } from "../utils/taskTree";
 
 interface Props {
   task: Task;
@@ -17,6 +18,7 @@ interface Props {
 
 export function TaskItem({ task, draggable = true }: Props) {
   const tags = useStore((s) => s.tags);
+  const allTasks = useStore((s) => s.tasks);
   const settings = useStore((s) => s.settings);
   const updateTask = useStore((s) => s.updateTask);
   const toggleTask = useStore((s) => s.toggleTask);
@@ -26,7 +28,10 @@ export function TaskItem({ task, draggable = true }: Props) {
   const grouping = settings.groupingEnabled;
   const showDueDate = settings.showDueDate ?? false;
 
-  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId } = useUiContext();
+  const depth = useMemo(() => getDepth(task, allTasks), [task, allTasks]);
+  const isLocked = useMemo(() => hasUndoneDescendants(task.id, allTasks), [task.id, allTasks]);
+
+  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId } = useUiContext();
   const isSelected = selectedTaskId === task.id;
   const isFocused = focusedTaskId === task.id;
   const isBulkSelected = bulkSelected.has(task.id);
@@ -118,11 +123,12 @@ export function TaskItem({ task, draggable = true }: Props) {
   return (
     <div
       ref={sortable.setNodeRef}
-      style={style}
+      style={{ ...style, paddingLeft: depth > 0 ? `${depth * 20 + 8}px` : undefined }}
       data-project={task.projectName || undefined}
       onClick={() => setSelectedTaskId(task.id)}
-      className={`group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
+      className={`relative group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
         border-l-[3px]
+        ${vibratingTaskId === task.id ? "task-shake" : ""}
         ${completing ? "task-sweep-left" : ""}
         ${isSelected && !isReorderMode ? "border-black/30 dark:border-white/50 task-selected-bg" : ""}
         ${isBulkSelected ? "border-black/20 dark:border-white/35 task-bulk-bg" : ""}
@@ -133,6 +139,13 @@ export function TaskItem({ task, draggable = true }: Props) {
         ${task.isPending && !focusedTaskId ? "opacity-10" : ""}
       `}
     >
+      {depth > 0 && Array.from({ length: depth }, (_, i) => (
+        <span
+          key={i}
+          className="absolute top-0 bottom-0 w-[1.5px] rounded-full bg-black/12 dark:bg-white/15 pointer-events-none"
+          style={{ left: `${i * 20 + 11}px` }}
+        />
+      ))}
       {draggable && (
         <button
           {...sortable.attributes}
@@ -150,9 +163,12 @@ export function TaskItem({ task, draggable = true }: Props) {
 
       <div className="relative flex-shrink-0">
         <button
-          onClick={handleToggle}
+          onClick={isLocked ? undefined : handleToggle}
+          title={isLocked ? t(lang, "childrenPending") : undefined}
           className={`w-[17px] h-[17px] rounded-[3px] border-2 flex items-center justify-center transition-all ${
-            task.status === "done"
+            isLocked
+              ? "border-black/15 dark:border-white/15 cursor-not-allowed opacity-40"
+              : task.status === "done"
               ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
               : task.isMinimum
               ? "border-black hover:border-black/70 dark:border-white dark:hover:border-white/80"
