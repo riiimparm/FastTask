@@ -12,6 +12,8 @@ import { useStore } from "./store";
 import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActionCallback } from "./utils/notify";
 import { t } from "./i18n";
 import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { CloseConfirmModal } from "./components/CloseConfirmModal";
 
 function AppInner() {
   const init = useStore((s) => s.init);
@@ -30,6 +32,7 @@ function AppInner() {
   const setTaskParent = useStore((s) => s.setTaskParent);
   const undo = useStore((s) => s.undo);
 
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -156,6 +159,19 @@ function AppInner() {
     window.addEventListener("focus", onWindowFocus);
     return () => window.removeEventListener("focus", onWindowFocus);
   }, [selectedTaskId, focusedTaskId, mainInputRef]);
+
+  // ウィンドウ閉じる前に isMinimum 未完了タスクがあれば確認モーダル表示
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    getCurrentWindow().onCloseRequested(async (event) => {
+      const hasMinimum = tasks.some((t) => t.status === "todo" && t.isMinimum);
+      if (hasMinimum) {
+        event.preventDefault();
+        setShowCloseConfirm(true);
+      }
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
+  }, [tasks]);
 
   const focusInput = useCallback(() => {
     mainInputRef.current?.focus();
@@ -298,7 +314,7 @@ function AppInner() {
       const currentIdx = todoTasks.findIndex((t) => t.id === selectedTaskId);
 
       // j / ArrowDown: 次のタスク
-      if (e.key === "ArrowDown" || (e.key === "j" && !e.shiftKey)) {
+      if ((e.key === "ArrowDown" && !e.shiftKey) || (e.key === "j" && !e.shiftKey)) {
         e.preventDefault();
         if (currentIdx < todoTasks.length - 1) {
           setSelectedTaskId(todoTasks[currentIdx + 1].id);
@@ -308,7 +324,7 @@ function AppInner() {
       }
 
       // k / ArrowUp: 前のタスク（最上部から更に上で入力フォームへ）
-      if (e.key === "ArrowUp" || (e.key === "k" && !e.shiftKey)) {
+      if ((e.key === "ArrowUp" && !e.shiftKey) || (e.key === "k" && !e.shiftKey)) {
         e.preventDefault();
         if (currentIdx > 0) {
           setSelectedTaskId(todoTasks[currentIdx - 1].id);
@@ -324,11 +340,11 @@ function AppInner() {
       // Shift+j: 複数選択（下方向）
       if (e.key === "J" || (e.key === "j" && e.shiftKey) || (e.key === "ArrowDown" && e.shiftKey)) {
         e.preventDefault();
-        toggleBulkSelect(selectedTaskId);
+        if (!bulkSelected.has(selectedTaskId)) toggleBulkSelect(selectedTaskId);
         if (currentIdx < todoTasks.length - 1) {
           const nextId = todoTasks[currentIdx + 1].id;
           setSelectedTaskId(nextId);
-          toggleBulkSelect(nextId);
+          if (!bulkSelected.has(nextId)) toggleBulkSelect(nextId);
         }
         return;
       }
@@ -336,11 +352,11 @@ function AppInner() {
       // Shift+k: 複数選択（上方向）
       if (e.key === "K" || (e.key === "k" && e.shiftKey) || (e.key === "ArrowUp" && e.shiftKey)) {
         e.preventDefault();
-        toggleBulkSelect(selectedTaskId);
+        if (!bulkSelected.has(selectedTaskId)) toggleBulkSelect(selectedTaskId);
         if (currentIdx > 0) {
           const prevId = todoTasks[currentIdx - 1].id;
           setSelectedTaskId(prevId);
-          toggleBulkSelect(prevId);
+          if (!bulkSelected.has(prevId)) toggleBulkSelect(prevId);
         }
         return;
       }
@@ -588,6 +604,14 @@ function AppInner() {
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 glass rounded-lg shadow-cardHover px-4 py-2 text-[12px] text-danger fade-in">
           {toast}
         </div>
+      )}
+      {showCloseConfirm && (
+        <CloseConfirmModal
+          remainingCount={tasks.filter((t) => t.status === "todo" && t.isMinimum).length}
+          lang={lang}
+          onClose={async () => { await getCurrentWindow().close(); }}
+          onCancel={() => setShowCloseConfirm(false)}
+        />
       )}
     </div>
   );

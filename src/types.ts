@@ -52,7 +52,7 @@ export const defaultSettings: Settings = {
   autoDeleteOldCompleted: true,
   groupingEnabled: true,
   copyGroupingEnabled: true,
-  showDueDate: false,
+  showDueDate: true,
   focusShortcut: "",
   lastFocusMinutes: 25,
   theme: "system",

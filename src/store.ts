@@ -89,7 +89,15 @@ function extractUrl(input: string): { text: string; url?: string } {
 }
 
 function autoTagsFor(body: string, tags: Tag[]): string[] {
-  const lower = body.toLowerCase();
+  // URL・日付パターンを除いたテキストでキーワードマッチ
+  const stripped = body
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/g, " ")
+    .replace(/(?<!\d)\d{1,2}[\/\-]\d{1,2}(?!\d)/g, " ")
+    .replace(/\d{1,2}月\d{1,2}日/g, " ")
+    .replace(/[月火水木金土日]曜日?/g, " ")
+    .replace(/\b(?:today|tomorrow|yesterday|sun(?:day)?|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?)\b/gi, " ");
+  const lower = stripped.toLowerCase();
   const matched: string[] = [];
   for (const t of tags) {
     for (const kw of t.keywords) {
@@ -139,14 +147,14 @@ export const useStore = create<State>((set, get) => ({
       const tags = data.tags ?? [];
 
       if (settings.autoDeleteOldCompleted) {
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
         tasks = tasks.filter(
           (t) =>
             !(
               t.status === "done" &&
               t.completedAt &&
-              new Date(t.completedAt) < oneYearAgo
+              new Date(t.completedAt) < threeMonthsAgo
             ),
         );
       }

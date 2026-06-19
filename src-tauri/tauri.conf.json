@@ -33,6 +33,9 @@
       "icons/icon_128x128.png",
       "icons/icon_256x256.png",
       "icons/icon_512x512.png"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }
