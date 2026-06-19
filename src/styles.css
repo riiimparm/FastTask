@@ -32,6 +32,16 @@ input, textarea {
   font-family: inherit;
 }
 
+input:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.10);
+}
+
+html.dark input:focus,
+html.dark textarea:focus {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: saturate(180%) blur(20px);

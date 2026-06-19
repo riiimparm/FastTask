@@ -53,13 +53,13 @@ function TagRow({ tag }: { tag: Tag }) {
   }
 
   return (
-    <div className="p-2 rounded border border-accent/30 bg-accent/5 space-y-1.5">
+    <div className="p-2 rounded border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] space-y-1.5">
       <div className="flex items-center gap-2">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t(lang, "tagNamePh")}
-          className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent"
+          className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-black/25 dark:focus:border-white/25"
         />
       </div>
       <div className="flex items-center gap-1 flex-wrap">
@@ -77,7 +77,7 @@ function TagRow({ tag }: { tag: Tag }) {
         onChange={(e) => setKeywords(e.target.value)}
         placeholder={t(lang, "keywordsPh")}
         rows={2}
-        className="w-full px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent resize-none"
+        className="w-full px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-black/25 dark:focus:border-white/25 resize-none"
       />
       <div className="flex justify-end gap-1">
         <button
@@ -141,14 +141,14 @@ export function TagManager() {
         )}
       </div>
       {adding && (
-        <div className="p-2 rounded border border-accent/30 bg-accent/5 space-y-1.5 mb-2">
+        <div className="p-2 rounded border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] space-y-1.5 mb-2">
           <div className="flex items-center gap-2">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t(lang, "tagNamePh")}
               autoFocus
-              className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent"
+              className="flex-1 px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-black/25 dark:focus:border-white/25"
             />
           </div>
           <div className="flex items-center gap-1 flex-wrap">
@@ -166,7 +166,7 @@ export function TagManager() {
             onChange={(e) => setKeywords(e.target.value)}
             placeholder={t(lang, "keywordsPh")}
             rows={2}
-            className="w-full px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-accent resize-none"
+            className="w-full px-2 py-1 rounded border border-black/10 text-[12px] outline-none focus:border-black/25 dark:focus:border-white/25 resize-none"
           />
           <div className="flex justify-end gap-1">
             <button

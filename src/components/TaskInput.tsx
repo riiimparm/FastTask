@@ -169,6 +169,7 @@ export function TaskInput() {
     <div className="px-4 py-3 border-b border-black/5">
       <div className="relative flex items-center gap-2">
         <div className="flex-1 relative">
+          {/* コマンドパレット風フルワイド入力 */}
           <div className="relative w-full">
             <input
               ref={inputRef}
@@ -177,13 +178,27 @@ export function TaskInput() {
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={t(lang, "placeholder")}
-              className={`w-full px-3 py-2 rounded-[10px] border outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all ${bulkCount >= 2 ? "border-accent/60 pr-14" : "border-black/10"}`}
+              className={`w-full pl-4 pr-10 py-2.5 rounded-xl bg-black/[0.055] dark:!bg-white/[0.08] border-0 outline-none transition-colors text-[13px] placeholder:text-black/30 dark:placeholder:text-white/28${bulkCount >= 2 ? " pr-16" : ""}`}
             />
-            {bulkCount >= 2 && (
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full pointer-events-none">
+            {bulkCount >= 2 ? (
+              <span className="absolute right-9 top-1/2 -translate-y-1/2 text-[11px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full pointer-events-none">
                 ×{bulkCount}
               </span>
-            )}
+            ) : null}
+            <button
+              onClick={submit}
+              disabled={!value.trim()}
+              className={`absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                value.trim()
+                  ? "bg-[#1C1C1E] text-[#F5F5F5] dark:bg-[#E0E0E0] dark:text-[#111111]"
+                  : "text-black/20 dark:text-white/20 cursor-not-allowed"
+              }`}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
           </div>
           {projectCandidates.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 glass rounded-card shadow-cardHover py-1 z-40 fade-in">
@@ -206,62 +221,44 @@ export function TaskInput() {
           )}
         </div>
         {showDueDate && (
-        <div className="relative">
-          <button
-            ref={dateBtnRef}
-            onClick={() => setShowDate((v) => !v)}
-            className={`h-9 px-2 rounded-[10px] border border-black/10 flex items-center gap-1 text-[12px] ${due ? "bg-black/8 text-ink border-black/20 dark:bg-white/10 dark:text-white dark:border-white/20" : "text-subink hover:bg-black/5"}`}
-            title={t(lang, "titleSetDue")}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            {due && (
-              <span>
-                {due.getMonth() + 1}/{due.getDate()}
-              </span>
-            )}
-          </button>
-          <Popover open={showDate} onClose={() => setShowDate(false)} anchorRef={dateBtnRef}>
-            <DayPicker
-              mode="single"
-              selected={due}
-              onSelect={(d) => {
-                setDue(d);
-                setShowDate(false);
-              }}
-            />
-            {due && (
-              <button
-                onClick={() => {
-                  setDue(undefined);
+          <div className="relative">
+            <button
+              ref={dateBtnRef}
+              onClick={() => setShowDate((v) => !v)}
+              className={`h-[42px] px-2.5 rounded-xl flex items-center gap-1.5 text-[12px] transition-colors ${due ? "bg-black/[0.055] dark:!bg-white/[0.08] text-ink" : "bg-black/[0.055] dark:!bg-white/[0.08] text-black/35 dark:text-white/35 hover:text-ink dark:hover:text-white"}`}
+              title={t(lang, "titleSetDue")}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              {due && <span>{due.getMonth() + 1}/{due.getDate()}</span>}
+            </button>
+            <Popover open={showDate} onClose={() => setShowDate(false)} anchorRef={dateBtnRef}>
+              <DayPicker
+                mode="single"
+                selected={due}
+                onSelect={(d) => {
+                  setDue(d);
                   setShowDate(false);
                 }}
-                className="w-full text-[12px] py-1 text-subink hover:bg-black/5 rounded"
-              >
-                {t(lang, "clear")}
-              </button>
-            )}
-          </Popover>
-        </div>
+              />
+              {due && (
+                <button
+                  onClick={() => {
+                    setDue(undefined);
+                    setShowDate(false);
+                  }}
+                  className="w-full text-[12px] py-1 text-subink hover:bg-black/5 rounded"
+                >
+                  {t(lang, "clear")}
+                </button>
+              )}
+            </Popover>
+          </div>
         )}
-        <button
-          onClick={submit}
-          disabled={!value.trim()}
-          className={`h-9 w-9 rounded-[10px] flex items-center justify-center transition-all ${
-            value.trim()
-              ? "bg-[#1C1C1E] text-[#F5F5F5] hover:bg-black dark:bg-[#E0E0E0] dark:text-[#111111] dark:hover:bg-[#F5F5F5]"
-              : "bg-black/10 text-subink cursor-not-allowed"
-          }`}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-        </button>
       </div>
       {/* プロジェクト表示とタグヒント */}
       {(parsedProject || matchedTags.length > 0) && (
