@@ -13,6 +13,7 @@ import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActi
 import { t } from "./i18n";
 import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
 import { checkForUpdate, UpdateInfo } from "./utils/updater";
@@ -174,6 +175,30 @@ function AppInner() {
     if (!loaded) return;
     checkForUpdate().then((info) => { if (info) setUpdateInfo(info); });
   }, [loaded]);
+
+  useEffect(() => {
+    let unlistenSettings: (() => void) | undefined;
+    let unlistenUpdate: (() => void) | undefined;
+
+    listen("menu-open-settings", () => {
+      setShowSettings(true);
+    }).then((f) => { unlistenSettings = f; });
+
+    listen("menu-check-update", async () => {
+      const info = await checkForUpdate();
+      if (info) {
+        setUpdateInfo(info);
+      } else {
+        const isJa = useStore.getState().settings.language === "ja";
+        setToast(isJa ? "最新版を使用中です" : "You are up to date");
+      }
+    }).then((f) => { unlistenUpdate = f; });
+
+    return () => {
+      unlistenSettings?.();
+      unlistenUpdate?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
