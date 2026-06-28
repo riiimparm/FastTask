@@ -5,6 +5,7 @@ import { useUiContext } from "../context/UiContext";
 import { Popover } from "./Popover";
 import { parseProjectFromInput } from "../utils/project";
 import { parseDateFromText, formatDateShort, dateToIso } from "../utils/parseDate";
+import { buildDfsOrder } from "../utils/taskTree";
 import { t } from "../i18n";
 
 export function TaskInput() {
@@ -21,7 +22,7 @@ export function TaskInput() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dateBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  const { mainInputRef, setSelectedTaskId, searchMode, setSearchMode, setSearchQuery } = useUiContext();
+  const { mainInputRef, setSelectedTaskId, searchMode, searchQuery, setSearchMode, setSearchQuery } = useUiContext();
 
   // mainInputRefとinputRefを同期
   useEffect(() => {
@@ -162,13 +163,30 @@ export function TaskInput() {
       setSearchMode(!searchMode);
       return;
     }
-    // ↓キーでリストへ移動（補完候補がない場合・検索モード以外）
-    if (e.key === "ArrowDown" && !searchMode && projectCandidates.length === 0) {
+    // ↓キーでリストへ移動（補完候補がない場合）
+    if (e.key === "ArrowDown" && projectCandidates.length === 0) {
       e.preventDefault();
-      inputRef.current?.blur();
-      const todoTasks = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
-      if (todoTasks.length > 0) {
-        setSelectedTaskId(todoTasks[0].id);
+      const dfsOrdered = buildDfsOrder(tasks.filter((t) => t.status === "todo"));
+      let first;
+      if (searchMode) {
+        const keywords = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        first = dfsOrdered.find((task) => {
+          if (keywords.length === 0) return true;
+          const body = task.projectName && task.title.startsWith(`:${task.projectName} `)
+            ? task.title.slice(task.projectName.length + 2)
+            : task.title;
+          const text = body.toLowerCase();
+          const tagText = tagsEnabled
+            ? task.tags.map((id) => tags.find((t) => t.id === id)?.name ?? "").join(" ").toLowerCase()
+            : "";
+          return keywords.every((kw) => text.includes(kw) || tagText.includes(kw));
+        });
+      } else {
+        first = dfsOrdered[0];
+      }
+      if (first) {
+        inputRef.current?.blur();
+        setSelectedTaskId(first.id);
       }
       return;
     }

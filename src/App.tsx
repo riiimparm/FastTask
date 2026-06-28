@@ -325,6 +325,11 @@ function AppInner() {
           clearBulkSelect();
           return;
         }
+        // 検索モード中 → 検索を解除して通常リストへ（選択は維持）
+        if (searchMode) {
+          setSearchMode(false);
+          return;
+        }
         if (selectedTaskId) {
           setSelectedTaskId(null);
           focusInput();
