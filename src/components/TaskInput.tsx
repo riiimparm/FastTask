@@ -13,6 +13,7 @@ export function TaskInput() {
   const tags = useStore((s) => s.tags);
   const lang = useStore((s) => s.settings.language);
   const showDueDate = useStore((s) => s.settings.showDueDate ?? false);
+  const tagsEnabled = useStore((s) => s.settings.tagsEnabled ?? false);
   const [value, setValue] = useState("");
   const [due, setDue] = useState<Date | undefined>(undefined);
   const [showDate, setShowDate] = useState(false);
@@ -20,7 +21,7 @@ export function TaskInput() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dateBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  const { mainInputRef, setSelectedTaskId } = useUiContext();
+  const { mainInputRef, setSelectedTaskId, searchMode, setSearchMode, setSearchQuery } = useUiContext();
 
   // mainInputRefとinputRefを同期
   useEffect(() => {
@@ -30,6 +31,11 @@ export function TaskInput() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    setValue("");
+    setSearchQuery("");
+  }, [searchMode]);
 
   const projectMatch = useMemo(() => {
     if (!value.startsWith(":")) return null;
@@ -55,12 +61,12 @@ export function TaskInput() {
   // タグヒント: 入力中のbody部分にマッチするタグを表示
   const { body: inputBody } = useMemo(() => parseProjectFromInput(value), [value]);
   const matchedTags = useMemo(() => {
-    if (!inputBody.trim()) return [];
+    if (!tagsEnabled || !inputBody.trim()) return [];
     const lower = inputBody.toLowerCase();
     return tags.filter((tag) =>
       tag.keywords.some((kw) => kw && lower.includes(kw.toLowerCase())),
     );
-  }, [inputBody, tags]);
+  }, [tagsEnabled, inputBody, tags]);
 
   useEffect(() => {
     setHighlight(0);
@@ -115,8 +121,16 @@ export function TaskInput() {
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+
+    if (e.key === "Escape" && searchMode) {
+      e.preventDefault();
+      setSearchMode(false);
+      return;
+    }
+
     if (e.key === "Enter") {
       e.preventDefault();
+      if (searchMode) return;
       // 補完候補がある場合は Enter で選択（submit しない）
       if (projectCandidates.length > 0) {
         applyCandidate(projectCandidates[highlight] ?? projectCandidates[0]);
@@ -125,7 +139,7 @@ export function TaskInput() {
       submit();
       return;
     }
-    if (projectCandidates.length > 0) {
+    if (!searchMode && projectCandidates.length > 0) {
       if (e.key === "Tab") {
         e.preventDefault();
         applyCandidate(projectCandidates[highlight] ?? projectCandidates[0]);
@@ -142,8 +156,14 @@ export function TaskInput() {
         return;
       }
     }
-    // ↓キーでリストへ移動（補完候補がない場合）
-    if (e.key === "ArrowDown" && projectCandidates.length === 0) {
+    // ↑キーで検索モードのトグル（補完候補がない場合）
+    if (e.key === "ArrowUp" && projectCandidates.length === 0) {
+      e.preventDefault();
+      setSearchMode(!searchMode);
+      return;
+    }
+    // ↓キーでリストへ移動（補完候補がない場合・検索モード以外）
+    if (e.key === "ArrowDown" && !searchMode && projectCandidates.length === 0) {
       e.preventDefault();
       inputRef.current?.blur();
       const todoTasks = tasks.filter((t) => t.status === "todo").sort((a, b) => a.order - b.order);
@@ -175,30 +195,42 @@ export function TaskInput() {
               ref={inputRef}
               data-main-input
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value);
+                if (searchMode) setSearchQuery(e.target.value);
+              }}
               onKeyDown={onKeyDown}
-              placeholder={t(lang, "placeholder")}
-              className={`w-full pl-4 pr-10 py-2.5 rounded-xl bg-black/[0.055] dark:!bg-white/[0.08] border-0 outline-none transition-colors text-[13px] placeholder:text-black/30 dark:placeholder:text-white/28${bulkCount >= 2 ? " pr-16" : ""}`}
+              placeholder={searchMode ? (lang === "ja" ? "キーワードで検索..." : "Search...") : t(lang, "placeholder")}
+              className={`w-full pl-4 pr-10 py-2.5 rounded-xl border-0 outline-none transition-all text-[13px] placeholder:text-black/30 dark:placeholder:text-white/28${bulkCount >= 2 && !searchMode ? " pr-16" : ""} ${searchMode ? "bg-blue-50/60 dark:!bg-blue-950/25 shadow-[0_0_0_2px_rgba(59,130,246,0.45)]" : "bg-black/[0.055] dark:!bg-white/[0.08]"}`}
             />
             {bulkCount >= 2 ? (
               <span className="absolute right-9 top-1/2 -translate-y-1/2 text-[11px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full pointer-events-none">
                 ×{bulkCount}
               </span>
             ) : null}
-            <button
-              onClick={submit}
-              disabled={!value.trim()}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
-                value.trim()
-                  ? "bg-[#1C1C1E] text-[#F5F5F5] dark:bg-[#E0E0E0] dark:text-[#111111]"
-                  : "text-black/20 dark:text-white/20 cursor-not-allowed"
-              }`}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
+            {searchMode ? (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-blue-400 dark:text-blue-400 pointer-events-none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </span>
+            ) : (
+              <button
+                onClick={submit}
+                disabled={!value.trim()}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                  value.trim()
+                    ? "bg-[#1C1C1E] text-[#F5F5F5] dark:bg-[#E0E0E0] dark:text-[#111111]"
+                    : "text-black/20 dark:text-white/20 cursor-not-allowed"
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+            )}
           </div>
           {projectCandidates.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-1 glass rounded-card shadow-cardHover py-1 z-40 fade-in">
@@ -220,7 +252,7 @@ export function TaskInput() {
             </div>
           )}
         </div>
-        {showDueDate && (
+        {showDueDate && !searchMode && (
           <div className="relative">
             <button
               ref={dateBtnRef}
@@ -261,7 +293,7 @@ export function TaskInput() {
         )}
       </div>
       {/* プロジェクト表示とタグヒント */}
-      {(parsedProject || matchedTags.length > 0) && (
+      {!searchMode && (parsedProject || matchedTags.length > 0) && (
         <div className="flex items-center gap-2 mt-1 pl-1 flex-wrap">
           {parsedProject && (
             <span className="text-[11px] text-subink">
@@ -278,7 +310,7 @@ export function TaskInput() {
           ))}
         </div>
       )}
-      {detectedDate && (
+      {!searchMode && detectedDate && (
         <div className="text-[11px] text-blue-500 dark:text-blue-400 mt-0.5 pl-1 flex items-center gap-1">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -286,7 +318,7 @@ export function TaskInput() {
           {formatDateShort(detectedDate.date, lang)}
         </div>
       )}
-      {detectedUrl && (
+      {!searchMode && detectedUrl && (
         <div className="text-[11px] text-accent mt-0.5 pl-1 flex items-center gap-1">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -295,7 +327,7 @@ export function TaskInput() {
           {t(lang, "urlDetected")}: <span className="opacity-70 truncate max-w-[260px] inline-block align-bottom">{detectedUrl}</span>
         </div>
       )}
-      {splitHintVisible && (
+      {!searchMode && splitHintVisible && (
         <div className="text-[11px] text-amber-500 mt-0.5 pl-1 flex items-center gap-1">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>

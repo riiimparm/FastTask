@@ -9,6 +9,8 @@ interface UiContextValue {
   bulkSelected: Set<string>;
   focusPhase: FocusPhase;
   focusMinutes: number;
+  searchMode: boolean;
+  searchQuery: string;
   setSelectedTaskId: (id: string | null) => void;
   setFocusedTaskId: (id: string | null) => void;
   setIsReorderMode: (v: boolean) => void;
@@ -16,6 +18,8 @@ interface UiContextValue {
   clearBulkSelect: () => void;
   setFocusPhase: (p: FocusPhase) => void;
   setFocusMinutes: React.Dispatch<React.SetStateAction<number>>;
+  setSearchMode: (v: boolean) => void;
+  setSearchQuery: (q: string) => void;
   mainInputRef: React.RefObject<HTMLInputElement | null>;
   vibratingTaskId: string | null;
   triggerVibration: (id: string) => void;
@@ -30,6 +34,8 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [focusPhase, setFocusPhase] = useState<FocusPhase>("idle");
   const [focusMinutes, setFocusMinutes] = useState(25);
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const mainInputRef = useRef<HTMLInputElement | null>(null);
   const [vibratingTaskId, setVibratingTaskId] = useState<string | null>(null);
   const vibrateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,6 +68,8 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
         bulkSelected,
         focusPhase,
         focusMinutes,
+        searchMode,
+        searchQuery,
         setSelectedTaskId,
         setFocusedTaskId,
         setIsReorderMode,
@@ -69,6 +77,8 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
         clearBulkSelect,
         setFocusPhase,
         setFocusMinutes,
+        setSearchMode,
+        setSearchQuery,
         mainInputRef,
         vibratingTaskId,
         triggerVibration,

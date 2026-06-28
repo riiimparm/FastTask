@@ -10,7 +10,7 @@ interface Props {
   onClose: () => void;
 }
 
-type ToggleKey = "copyIncludeUrl" | "groupingEnabled" | "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate";
+type ToggleKey = "copyIncludeUrl" | "groupingEnabled" | "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled";
 
 const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
   { key: "copyIncludeUrl", label: "setting_copyIncludeUrl", desc: "setting_copyIncludeUrl_desc" },
@@ -18,6 +18,7 @@ const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
   { key: "copyGroupingEnabled", label: "setting_copyGroupingEnabled", desc: "setting_copyGroupingEnabled_desc" },
   { key: "autoDeleteOldCompleted", label: "setting_autoDeleteOldCompleted", desc: "setting_autoDeleteOldCompleted_desc" },
   { key: "showDueDate", label: "setting_showDueDate", desc: "setting_showDueDate_desc" },
+  { key: "tagsEnabled", label: "setting_tagsEnabled", desc: "setting_tagsEnabled_desc" },
 ];
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -287,9 +288,11 @@ export function SettingsModal({ open, onClose }: Props) {
               )}
             </div>
 
-            <div className="border-t border-black/5 pt-4">
-              <TagManager />
-            </div>
+            {settings.tagsEnabled && (
+              <div className="border-t border-black/5 pt-4">
+                <TagManager />
+              </div>
+            )}
 
             <div className="border-t border-black/5 pt-3 flex justify-end">
               <button

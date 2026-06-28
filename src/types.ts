@@ -32,6 +32,7 @@ export interface Settings {
   groupingEnabled: boolean;
   copyGroupingEnabled: boolean;
   showDueDate: boolean;
+  tagsEnabled: boolean;
   focusShortcut: string;
   lastFocusMinutes: number;
   theme: Theme;
@@ -52,7 +53,8 @@ export const defaultSettings: Settings = {
   autoDeleteOldCompleted: true,
   groupingEnabled: true,
   copyGroupingEnabled: true,
-  showDueDate: true,
+  showDueDate: false,
+  tagsEnabled: false,
   focusShortcut: "",
   lastFocusMinutes: 25,
   theme: "system",

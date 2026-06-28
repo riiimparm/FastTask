@@ -16,7 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
-import { Task } from "../types";
+import { Tag, Task } from "../types";
 import { TaskItem } from "./TaskItem";
 import { t } from "../i18n";
 import { buildDfsOrder, getDescendants } from "../utils/taskTree";
@@ -101,8 +101,33 @@ function ProjectSection({ projectKey, projectName, tasks, collapsed, onToggle }:
   );
 }
 
-export function TaskList() {
+interface TaskListProps {
+  tagFilter?: Set<string>;
+  searchKeywords?: string[];
+}
+
+function matchesKeywords(
+  task: { title: string; projectName?: string; tags: string[] },
+  keywords: string[],
+  tags: Tag[],
+  tagsEnabled: boolean,
+): boolean {
+  if (keywords.length === 0) return true;
+  const body =
+    task.projectName && task.title.startsWith(`:${task.projectName} `)
+      ? task.title.slice(task.projectName.length + 2)
+      : task.title;
+  const text = body.toLowerCase();
+  const tagText = tagsEnabled
+    ? task.tags.map((id) => tags.find((t) => t.id === id)?.name ?? "").join(" ").toLowerCase()
+    : "";
+  return keywords.every((kw) => text.includes(kw) || tagText.includes(kw));
+}
+
+export function TaskList({ tagFilter, searchKeywords = [] }: TaskListProps) {
   const tasks = useStore((s) => s.tasks);
+  const tags = useStore((s) => s.tags);
+  const tagsEnabled = useStore((s) => s.settings.tagsEnabled ?? false);
   const grouping = useStore((s) => s.settings.groupingEnabled);
   const lang = useStore((s) => s.settings.language);
   const reorderTasks = useStore((s) => s.reorderTasks);
@@ -115,12 +140,21 @@ export function TaskList() {
     [tasks],
   );
 
-  // フォーカスモード時：対象タスクとその子孫を表示
+  // フォーカスモード・タグフィルター・検索フィルターを適用
   const displayTasks = useMemo(() => {
-    if (!focusedTaskId) return todoTasks;
-    const descendantIds = new Set(getDescendants(focusedTaskId, tasks).map((t) => t.id));
-    return todoTasks.filter((t) => t.id === focusedTaskId || descendantIds.has(t.id));
-  }, [todoTasks, focusedTaskId, tasks]);
+    let base = todoTasks;
+    if (focusedTaskId) {
+      const descendantIds = new Set(getDescendants(focusedTaskId, tasks).map((t) => t.id));
+      base = base.filter((t) => t.id === focusedTaskId || descendantIds.has(t.id));
+    }
+    if (tagFilter && tagFilter.size > 0) {
+      base = base.filter((t) => t.tags.some((id) => tagFilter.has(id)));
+    }
+    if (searchKeywords.length > 0) {
+      base = base.filter((t) => matchesKeywords(t, searchKeywords, tags, tagsEnabled));
+    }
+    return base;
+  }, [todoTasks, focusedTaskId, tasks, tagFilter, searchKeywords, tags, tagsEnabled]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 

@@ -13,12 +13,16 @@ import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActi
 import { t } from "./i18n";
 import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
+import { checkForUpdate, UpdateInfo } from "./utils/updater";
 
 function AppInner() {
   const init = useStore((s) => s.init);
   const loaded = useStore((s) => s.loaded);
   const grouping = useStore((s) => s.settings.groupingEnabled);
+  const tagsEnabled = useStore((s) => s.settings.tagsEnabled ?? false);
+  const tags = useStore((s) => s.tags);
   const lang = useStore((s) => s.settings.language);
   const lastFocusMinutes = useStore((s) => s.settings.lastFocusMinutes);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -35,6 +39,9 @@ function AppInner() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [tagFilterEnabled, setTagFilterEnabled] = useState(false);
+  const [tagFilterIds, setTagFilterIds] = useState<Set<string>>(new Set());
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 
   const {
     selectedTaskId,
@@ -52,6 +59,9 @@ function AppInner() {
     setFocusMinutes,
     mainInputRef,
     triggerVibration,
+    searchMode,
+    searchQuery,
+    setSearchMode,
   } = useUiContext();
 
   const [timerActive, setTimerActive] = useState(false);
@@ -124,8 +134,25 @@ function AppInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
 
+  const searchKeywords = useMemo(() => {
+    if (!searchMode || !searchQuery.trim()) return [];
+    return searchQuery.trim().toLowerCase().split(/\s+/);
+  }, [searchMode, searchQuery]);
+
   const todoTasks = useMemo(() => {
-    const dfs = buildDfsOrder(tasks.filter((t) => t.status === "todo"));
+    let dfs = buildDfsOrder(tasks.filter((t) => t.status === "todo"));
+    if (searchKeywords.length > 0) {
+      dfs = dfs.filter((task) => {
+        const body = task.projectName && task.title.startsWith(`:${task.projectName} `)
+          ? task.title.slice(task.projectName.length + 2)
+          : task.title;
+        const text = body.toLowerCase();
+        const tagText = tagsEnabled
+          ? task.tags.map((id) => tags.find((t) => t.id === id)?.name ?? "").join(" ").toLowerCase()
+          : "";
+        return searchKeywords.every((kw) => text.includes(kw) || tagText.includes(kw));
+      });
+    }
     if (!grouping) return dfs;
     // グルーピング ON 時は ProjectSection の表示順に合わせる
     const NONE_KEY = "__none__";
@@ -137,11 +164,16 @@ function AppInner() {
       sectionsMap.get(key)!.push(t);
     }
     return sectionOrder.flatMap((k) => sectionsMap.get(k)!);
-  }, [tasks, grouping]);
+  }, [tasks, grouping, searchKeywords, tagsEnabled, tags]);
 
   useEffect(() => {
     init();
   }, [init]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    checkForUpdate().then((info) => { if (info) setUpdateInfo(info); });
+  }, [loaded]);
 
   useEffect(() => {
     if (!toast) return;
@@ -196,6 +228,14 @@ function AppInner() {
         e.preventDefault();
         undo();
         setToast(t(lang, "undone"));
+        return;
+      }
+
+      // Cmd+F: 検索モードへ
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchMode(true);
+        mainInputRef.current?.focus();
         return;
       }
 
@@ -534,6 +574,8 @@ function AppInner() {
       setFocusElapsed,
       setShowFocusEnd,
       setFocusPhase,
+      searchMode,
+      setSearchMode,
     ],
   );
 
@@ -553,19 +595,93 @@ function AppInner() {
   return (
     <div className="h-full flex flex-col bg-appbg relative">
       <Header onOpenSettings={() => setShowSettings(true)} />
+      {updateInfo && (
+        <div className="px-4 py-2 flex items-center justify-between gap-3 bg-blue-50/80 dark:bg-blue-950/30 border-b border-blue-200/60 dark:border-blue-800/40 text-[12px]">
+          <span className="text-blue-700 dark:text-blue-300">
+            {lang === "ja"
+              ? `v${updateInfo.version} が利用可能です`
+              : `v${updateInfo.version} is available`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openUrl(updateInfo.releaseUrl)}
+              className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors"
+            >
+              {lang === "ja" ? "アップデート" : "Update"}
+            </button>
+            <button
+              onClick={() => setUpdateInfo(null)}
+              className="text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300"
+              aria-label="dismiss"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
       <TaskInput />
       <div className="px-3 py-2 flex items-center justify-between text-[11px] text-subink">
-        <button
-          onClick={() => updateSettings({ groupingEnabled: !grouping })}
-          className="flex items-center gap-1.5 cursor-pointer select-none"
-        >
-          <span className={`w-3.5 h-3.5 rounded-[2px] border transition-all flex-shrink-0 ${
-            grouping
-              ? "bg-[#1C1C1E] border-[#1C1C1E] dark:bg-[#E0E0E0] dark:border-[#E0E0E0]"
-              : "border-black/30 dark:border-white/30"
-          }`} />
-          {t(lang, "grouping")}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => updateSettings({ groupingEnabled: !grouping })}
+            className="flex items-center gap-1.5 cursor-pointer select-none"
+          >
+            <span className={`w-3.5 h-3.5 rounded-[2px] border transition-all flex-shrink-0 ${
+              grouping
+                ? "bg-[#1C1C1E] border-[#1C1C1E] dark:bg-[#E0E0E0] dark:border-[#E0E0E0]"
+                : "border-black/30 dark:border-white/30"
+            }`} />
+            {t(lang, "grouping")}
+          </button>
+          {tagsEnabled && tags.length > 0 && (
+            <button
+              onClick={() => {
+                setTagFilterEnabled((v) => {
+                  if (v) setTagFilterIds(new Set());
+                  return !v;
+                });
+              }}
+              className="flex items-center gap-1.5 cursor-pointer select-none"
+            >
+              <span className={`w-3.5 h-3.5 rounded-[2px] border transition-all flex-shrink-0 ${
+                tagFilterEnabled
+                  ? "bg-[#1C1C1E] border-[#1C1C1E] dark:bg-[#E0E0E0] dark:border-[#E0E0E0]"
+                  : "border-black/30 dark:border-white/30"
+              }`} />
+              {t(lang, "tagFilter")}
+            </button>
+          )}
+          {tagFilterEnabled && tags.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {tags.map((tag) => {
+                const active = tagFilterIds.has(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => {
+                      setTagFilterIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(tag.id)) next.delete(tag.id);
+                        else next.add(tag.id);
+                        return next;
+                      });
+                    }}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] transition-all ${
+                      active
+                        ? "bg-[#1C1C1E] text-white dark:bg-[#E0E0E0] dark:text-[#111]"
+                        : "bg-black/8 text-subink dark:bg-white/10 hover:bg-black/15 dark:hover:bg-white/15"
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tag.color }} />
+                    {tag.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         {isReorderMode && (
           <span className="text-accent text-[11px] font-medium animate-pulse">
             ↕ {lang === "ja" ? "並び替えモード" : "Reorder mode"}
@@ -581,7 +697,10 @@ function AppInner() {
         )}
       </div>
       <main className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-3">
-        <TaskList />
+        <TaskList
+          tagFilter={tagFilterEnabled && tagFilterIds.size > 0 ? tagFilterIds : undefined}
+          searchKeywords={searchKeywords}
+        />
         {!focusedTaskId && <CompletedSection />}
       </main>
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />

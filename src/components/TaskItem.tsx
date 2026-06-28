@@ -27,6 +27,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   const lang = settings.language;
   const grouping = settings.groupingEnabled;
   const showDueDate = settings.showDueDate ?? false;
+  const tagsEnabled = settings.tagsEnabled ?? false;
 
   const depth = useMemo(() => getDepth(task, allTasks), [task, allTasks]);
   const isLocked = useMemo(() => hasUndoneDescendants(task.id, allTasks), [task.id, allTasks]);
@@ -228,7 +229,7 @@ export function TaskItem({ task, draggable = true }: Props) {
       </div>
 
       <div className="flex items-center gap-1">
-        {task.tags.map((id) => {
+        {tagsEnabled && task.tags.map((id) => {
           const tag = tagsById.get(id);
           if (!tag) return null;
           return (
@@ -263,47 +264,49 @@ export function TaskItem({ task, draggable = true }: Props) {
         )}
 
         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-          <div className="relative">
-            <button
-              ref={tagsBtn}
-              onClick={() => setShowTags((v) => !v)}
-              className="w-6 h-6 rounded hover:bg-black/5 flex items-center justify-center text-subink"
-              title={t(lang, "titleTags")}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-                <line x1="7" y1="7" x2="7.01" y2="7"/>
-              </svg>
-            </button>
-            <Popover open={showTags} onClose={() => setShowTags(false)} anchorRef={tagsBtn}>
-              <div className="min-w-[160px] max-h-[200px] overflow-y-auto scrollbar-thin">
-                {tags.length === 0 && (
-                  <div className="text-[12px] text-subink p-2">{t(lang, "noTags")}</div>
-                )}
-                {tags.map((tag) => {
-                  const active = task.tags.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      onClick={() => toggleTag(tag.id)}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-black/5 text-[12px]"
-                    >
-                      <span
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ background: tag.color }}
-                      />
-                      <span className="flex-1 text-left">{tag.name}</span>
-                      {active && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </Popover>
-          </div>
+          {tagsEnabled && (
+            <div className="relative">
+              <button
+                ref={tagsBtn}
+                onClick={() => setShowTags((v) => !v)}
+                className="w-6 h-6 rounded hover:bg-black/5 flex items-center justify-center text-subink"
+                title={t(lang, "titleTags")}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                  <line x1="7" y1="7" x2="7.01" y2="7"/>
+                </svg>
+              </button>
+              <Popover open={showTags} onClose={() => setShowTags(false)} anchorRef={tagsBtn}>
+                <div className="min-w-[160px] max-h-[200px] overflow-y-auto scrollbar-thin">
+                  {tags.length === 0 && (
+                    <div className="text-[12px] text-subink p-2">{t(lang, "noTags")}</div>
+                  )}
+                  {tags.map((tag) => {
+                    const active = task.tags.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTag(tag.id)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-black/5 text-[12px]"
+                      >
+                        <span
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ background: tag.color }}
+                        />
+                        <span className="flex-1 text-left">{tag.name}</span>
+                        {active && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Popover>
+            </div>
+          )}
 
           <div className="relative">
             <button
