@@ -10,14 +10,15 @@ interface Props {
   onClose: () => void;
 }
 
-type ToggleKey = "copyIncludeUrl" | "groupingEnabled" | "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate";
+type ToggleKey = "copyIncludeUrl" | "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled" | "calendarEnabled";
 
 const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
   { key: "copyIncludeUrl", label: "setting_copyIncludeUrl", desc: "setting_copyIncludeUrl_desc" },
-  { key: "groupingEnabled", label: "setting_groupingEnabled", desc: "setting_groupingEnabled_desc" },
   { key: "copyGroupingEnabled", label: "setting_copyGroupingEnabled", desc: "setting_copyGroupingEnabled_desc" },
   { key: "autoDeleteOldCompleted", label: "setting_autoDeleteOldCompleted", desc: "setting_autoDeleteOldCompleted_desc" },
   { key: "showDueDate", label: "setting_showDueDate", desc: "setting_showDueDate_desc" },
+  { key: "tagsEnabled", label: "setting_tagsEnabled", desc: "setting_tagsEnabled_desc" },
+  { key: "calendarEnabled", label: "setting_calendarEnabled", desc: "setting_calendarEnabled_desc" },
 ];
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -214,7 +215,9 @@ export function SettingsModal({ open, onClose }: Props) {
               {TOGGLES.map((it) => (
                 <div key={it.key} className="flex items-center gap-3">
                   <div className="flex-1">
-                    <div className="text-[13px]">{t(lang, it.label)}</div>
+                    <div className="text-[13px] flex items-center gap-1.5">
+                      {t(lang, it.label)}
+                    </div>
                     <div className="text-[11px] text-subink">{t(lang, it.desc)}</div>
                   </div>
                   <Toggle
@@ -228,11 +231,6 @@ export function SettingsModal({ open, onClose }: Props) {
             <div className="border-t border-black/5 pt-4 space-y-1.5">
               <div className="text-[13px]">
                 {lang === "ja" ? "ウィンドウフォーカスショートカット" : "Window focus shortcut"}
-              </div>
-              <div className="text-[11px] text-subink">
-                {lang === "ja"
-                  ? "修飾キー（⌘/⌃/⌥）を含むキー組み合わせ"
-                  : "Key combo including a modifier (⌘/⌃/⌥)"}
               </div>
               <div className="flex gap-2">
                 {capturing ? (
@@ -285,11 +283,16 @@ export function SettingsModal({ open, onClose }: Props) {
               {shortcutError && (
                 <div className="text-[11px] text-danger">{shortcutError}</div>
               )}
+              <div className="text-[11px] text-subink">
+                {lang === "ja" ? "ショートカット一覧は「?」から確認できます" : "Press \"?\" to view the shortcut list"}
+              </div>
             </div>
 
-            <div className="border-t border-black/5 pt-4">
-              <TagManager />
-            </div>
+            {settings.tagsEnabled && (
+              <div className="border-t border-black/5 pt-4">
+                <TagManager />
+              </div>
+            )}
 
             <div className="border-t border-black/5 pt-3 flex justify-end">
               <button

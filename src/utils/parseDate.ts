@@ -1,5 +1,5 @@
-const DAY_NAMES_JA = ["日", "月", "火", "水", "木", "金", "土"];
-const DAY_NAMES_EN_SHORT = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+export const DAY_NAMES_JA = ["日", "月", "火", "水", "木", "金", "土"];
+export const DAY_NAMES_EN_SHORT = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 function offsetDate(base: Date, days: number): Date {
   const d = new Date(base);

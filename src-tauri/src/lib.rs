@@ -1,5 +1,6 @@
 use std::fs;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 #[tauri::command]
@@ -67,6 +68,48 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
+        .setup(|app| {
+            let settings_item = MenuItemBuilder::with_id("settings", "設定...")
+                .accelerator("CmdOrCtrl+Comma")
+                .build(app)?;
+            let check_update_item = MenuItemBuilder::with_id("check-update", "アップデートを確認")
+                .build(app)?;
+
+            let app_submenu = SubmenuBuilder::new(app, "FastTask")
+                .item(&settings_item)
+                .separator()
+                .item(&check_update_item)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+
+            let edit_submenu = SubmenuBuilder::new(app, "編集")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&app_submenu)
+                .item(&edit_submenu)
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            app.on_menu_event(|app, event| {
+                match event.id().as_ref() {
+                    "settings" => { let _ = app.emit("menu-open-settings", ()); }
+                    "check-update" => { let _ = app.emit("menu-check-update", ()); }
+                    _ => {}
+                }
+            });
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             load_data,
             save_data,
