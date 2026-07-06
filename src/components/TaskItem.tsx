@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { DayPicker } from "react-day-picker";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
 import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
-import { todayIso } from "../utils/project";
+import { todayIso, parseProjectFromInput } from "../utils/project";
+import { parseDateFromText, dateToIso } from "../utils/parseDate";
 import { t } from "../i18n";
 import { getDepth, hasUndoneDescendants } from "../utils/taskTree";
 
@@ -57,12 +57,10 @@ export function TaskItem({ task, draggable = true }: Props) {
 
   const [showTags, setShowTags] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
-  const [showDate, setShowDate] = useState(false);
   const [urlInput, setUrlInput] = useState(task.url ?? "");
 
   const tagsBtn = useRef<HTMLButtonElement | null>(null);
   const urlBtn = useRef<HTMLButtonElement | null>(null);
-  const dateBtn = useRef<HTMLButtonElement | null>(null);
 
   const tagsById = new Map<string, Tag>(tags.map((t) => [t.id, t]));
 
@@ -83,7 +81,22 @@ export function TaskItem({ task, draggable = true }: Props) {
   }
 
   function commitEdit() {
-    if (editValue.trim()) updateTask(task.id, { title: editValue.trim() });
+    const trimmed = editValue.trim();
+    if (trimmed) {
+      let title = trimmed;
+      const updates: { title: string; dueDate?: string } = { title };
+      if (showDueDate) {
+        const { projectName, body } = parseProjectFromInput(trimmed);
+        const detected = parseDateFromText(body, new Date());
+        if (detected) {
+          const prefix = projectName ? `:${projectName} ` : "";
+          title = (prefix + detected.textWithoutDate).trim();
+          updates.title = title;
+          updates.dueDate = dateToIso(detected.date);
+        }
+      }
+      updateTask(task.id, updates);
+    }
     setEditing(false);
   }
 
@@ -110,6 +123,11 @@ export function TaskItem({ task, draggable = true }: Props) {
   }
 
 
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (isSelected) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [isSelected]);
+
   const due = task.dueDate;
   const dueDate = due ? new Date(due + "T00:00:00") : undefined;
   const today = todayIso();
@@ -123,7 +141,10 @@ export function TaskItem({ task, draggable = true }: Props) {
 
   return (
     <div
-      ref={sortable.setNodeRef}
+      ref={(el) => {
+        sortable.setNodeRef(el);
+        rowRef.current = el;
+      }}
       style={{ ...style, paddingLeft: depth > 0 ? `${depth * 20 + 8}px` : undefined }}
       data-project={task.projectName || undefined}
       onClick={() => setSelectedTaskId(task.id)}
@@ -221,7 +242,7 @@ export function TaskItem({ task, draggable = true }: Props) {
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/>
                 </svg>
-                AWAITING...
+                PENDING...
               </span>
             )}
           </div>
@@ -258,9 +279,13 @@ export function TaskItem({ task, draggable = true }: Props) {
         )}
 
         {showDueDate && due && (
-          <span className={`text-[11px] ${dueClass}`}>
+          <button
+            onClick={() => updateTask(task.id, { dueDate: undefined })}
+            title={t(lang, "titleDue")}
+            className={`text-[11px] rounded hover:bg-black/5 px-0.5 ${dueClass}`}
+          >
             {dueDate!.getMonth() + 1}/{dueDate!.getDate()}
-          </span>
+          </button>
         )}
 
         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
@@ -353,48 +378,6 @@ export function TaskItem({ task, draggable = true }: Props) {
               </div>
             </Popover>
           </div>
-
-          {showDueDate && (
-          <div className="relative">
-            <button
-              ref={dateBtn}
-              onClick={() => setShowDate((v) => !v)}
-              className="w-6 h-6 rounded hover:bg-black/5 flex items-center justify-center text-subink"
-              title={t(lang, "titleDue")}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </button>
-            <Popover open={showDate} onClose={() => setShowDate(false)} anchorRef={dateBtn}>
-              <DayPicker
-                mode="single"
-                selected={dueDate}
-                onSelect={(d) => {
-                  const iso = d
-                    ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-                    : undefined;
-                  updateTask(task.id, { dueDate: iso });
-                  setShowDate(false);
-                }}
-              />
-              {task.dueDate && (
-                <button
-                  onClick={() => {
-                    updateTask(task.id, { dueDate: undefined });
-                    setShowDate(false);
-                  }}
-                  className="w-full text-[12px] py-1 text-subink hover:bg-black/5 rounded"
-                >
-                  {t(lang, "clear")}
-                </button>
-              )}
-            </Popover>
-          </div>
-          )}
 
           <button
             onClick={() => deleteTask(task.id)}

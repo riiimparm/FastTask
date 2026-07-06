@@ -46,7 +46,7 @@ interface State {
   toast?: string;
   undoStack: Task[][];
   init: () => Promise<void>;
-  addTask: (rawInput: string, dueDate?: string) => void;
+  addTask: (rawInput: string, dueDate?: string) => string;
   toggleTask: (id: string) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTask: (id: string) => void;
@@ -81,7 +81,7 @@ function scheduleSave(get: () => State) {
 }
 
 function extractUrl(input: string): { text: string; url?: string } {
-  const m = input.match(/https?:\/\/\S+/);
+  const m = input.match(/(?:https?|file):\/\/\S+/);
   if (!m) return { text: input };
   const url = m[0];
   const text = input.replace(url, "").replace(/\s{2,}/g, " ").trim();
@@ -91,7 +91,7 @@ function extractUrl(input: string): { text: string; url?: string } {
 function autoTagsFor(body: string, tags: Tag[]): string[] {
   // URL・日付パターンを除いたテキストでキーワードマッチ
   const stripped = body
-    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/(?:https?|file):\/\/\S+/gi, " ")
     .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/g, " ")
     .replace(/(?<!\d)\d{1,2}[\/\-]\d{1,2}(?!\d)/g, " ")
     .replace(/\d{1,2}月\d{1,2}日/g, " ")
@@ -188,7 +188,7 @@ export const useStore = create<State>((set, get) => ({
 
   addTask(rawInput, dueDate) {
     const trimmed = rawInput.trim();
-    if (!trimmed) return;
+    if (!trimmed) return "";
     get().pushUndo();
     const { text: withoutUrl, url: autoUrl } = extractUrl(trimmed);
     const { projectName, body } = parseProjectFromInput(withoutUrl);
@@ -209,6 +209,7 @@ export const useStore = create<State>((set, get) => ({
     };
     set({ tasks: [...get().tasks, task] });
     scheduleSave(get);
+    return task.id;
   },
 
   toggleTask(id) {

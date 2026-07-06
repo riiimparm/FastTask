@@ -13,6 +13,8 @@ import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActi
 import { t } from "./i18n";
 import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LogicalSize } from "@tauri-apps/api/dpi";
+import { CalendarPanel } from "./components/CalendarPanel";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
@@ -23,6 +25,7 @@ function AppInner() {
   const loaded = useStore((s) => s.loaded);
   const grouping = useStore((s) => s.settings.groupingEnabled);
   const tagsEnabled = useStore((s) => s.settings.tagsEnabled ?? false);
+  const calendarEnabled = useStore((s) => s.settings.calendarEnabled ?? false);
   const tags = useStore((s) => s.tags);
   const lang = useStore((s) => s.settings.language);
   const lastFocusMinutes = useStore((s) => s.settings.lastFocusMinutes);
@@ -170,6 +173,19 @@ function AppInner() {
   useEffect(() => {
     init();
   }, [init]);
+
+  useEffect(() => {
+    (async () => {
+      const win = getCurrentWindow();
+      const scaleFactor = await win.scaleFactor();
+      const logical = (await win.innerSize()).toLogical(scaleFactor);
+      const DEFAULT_WIDTH = 480;
+      const targetWidth = calendarEnabled ? Math.round(DEFAULT_WIDTH * 2.5) : DEFAULT_WIDTH;
+      if (Math.round(logical.width) !== targetWidth) {
+        await win.setSize(new LogicalSize(targetWidth, logical.height));
+      }
+    })();
+  }, [calendarEnabled]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -651,6 +667,8 @@ function AppInner() {
           </div>
         </div>
       )}
+      <div className="flex-1 flex min-h-0">
+      <div className="w-[480px] shrink-0 flex flex-col min-h-0">
       <TaskInput />
       <div className="px-3 py-2 flex items-center justify-between text-[11px] text-subink">
         <div className="flex items-center gap-3">
@@ -733,6 +751,13 @@ function AppInner() {
         />
         {!focusedTaskId && <CompletedSection />}
       </main>
+      </div>
+      {calendarEnabled && (
+        <div className="flex-1 min-w-0 border-l border-black/5 flex flex-col min-h-0">
+          <CalendarPanel />
+        </div>
+      )}
+      </div>
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {focusPhase === "setup" && (

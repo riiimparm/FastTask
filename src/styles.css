@@ -34,12 +34,12 @@ input, textarea {
 
 input:focus, textarea:focus {
   outline: none;
-  box-shadow: 0 0 0 1.5px rgba(0,0,0,0.55), 0 0 16px 4px rgba(0,0,0,0.10);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 16px 4px rgba(0,0,0,0.10);
 }
 
 html.dark input:focus,
 html.dark textarea:focus {
-  box-shadow: 0 0 0 1.5px rgba(255,255,255,0.55), 0 0 16px 4px rgba(255,255,255,0.10);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.45), 0 0 16px 4px rgba(255,255,255,0.10);
 }
 
 .glass {
@@ -165,10 +165,17 @@ html.dark .task-bulk-bg {
 
 /* react-day-picker minimal restyle */
 .rdp {
-  --rdp-accent-color: #007AFF;
-  --rdp-background-color: rgba(0,122,255,0.1);
+  --rdp-accent-color: #1D1D1F;
+  --rdp-accent-background-color: rgba(0,0,0,0.08);
+  --rdp-background-color: rgba(0,0,0,0.08);
   font-size: 13px;
   margin: 0;
+}
+
+html.dark .rdp {
+  --rdp-accent-color: #F5F5F7;
+  --rdp-accent-background-color: rgba(255,255,255,0.12);
+  --rdp-background-color: rgba(255,255,255,0.12);
 }
 
 @keyframes fade-in {

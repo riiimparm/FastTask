@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DayPicker } from "react-day-picker";
 import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
-import { Popover } from "./Popover";
 import { parseProjectFromInput } from "../utils/project";
 import { parseDateFromText, formatDateShort, dateToIso } from "../utils/parseDate";
 import { buildDfsOrder } from "../utils/taskTree";
@@ -16,11 +14,9 @@ export function TaskInput() {
   const showDueDate = useStore((s) => s.settings.showDueDate ?? false);
   const tagsEnabled = useStore((s) => s.settings.tagsEnabled ?? false);
   const [value, setValue] = useState("");
-  const [due, setDue] = useState<Date | undefined>(undefined);
-  const [showDate, setShowDate] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const dateBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const { mainInputRef, setSelectedTaskId, searchMode, searchQuery, setSearchMode, setSearchQuery } = useUiContext();
 
@@ -31,6 +27,7 @@ export function TaskInput() {
 
   useEffect(() => {
     inputRef.current?.focus();
+    setIsFocused(true);
   }, []);
 
   useEffect(() => {
@@ -79,28 +76,28 @@ export function TaskInput() {
   }
 
   const detectedDate = useMemo(() => {
-    if (!showDueDate || due || !value.trim()) return null;
+    if (!showDueDate || !value.trim()) return null;
     const { body } = parseProjectFromInput(value);
     return parseDateFromText(body, new Date());
-  }, [showDueDate, due, value]);
+  }, [showDueDate, value]);
 
   const splitHintVisible = useMemo(() => {
     if (!value.trim()) return false;
     const parts = value.split(",").map((s) => s.trim()).filter(Boolean);
     return parts.some((part) => {
-      const withoutUrl = part.replace(/https?:\/\/\S+/g, "").trim();
+      const withoutUrl = part.replace(/(?:https?|file):\/\/\S+/g, "").trim();
       return withoutUrl.length >= 30;
     });
   }, [value]);
 
   function submit() {
     if (!value.trim()) return;
-    const effectiveDue = due ?? detectedDate?.date ?? undefined;
+    const effectiveDue = detectedDate?.date ?? undefined;
     const iso = effectiveDue ? dateToIso(effectiveDue) : undefined;
 
     // 日付検出時はテキストから日付部分を除去してプロジェクトプレフィックスを再結合
     let submitValue = value;
-    if (!due && detectedDate) {
+    if (detectedDate) {
       const { projectName } = parseProjectFromInput(value);
       const prefix = projectName ? `:${projectName} ` : "";
       submitValue = prefix + detectedDate.textWithoutDate;
@@ -108,15 +105,16 @@ export function TaskInput() {
 
     const parts = submitValue.split(",").map((s) => s.trim()).filter(Boolean);
     const { projectName: firstProject } = parseProjectFromInput(parts[0] ?? "");
+    let lastId = "";
     parts.forEach((part, i) => {
-      if (i > 0 && firstProject && !part.startsWith(":")) {
-        addTask(`:${firstProject} ${part}`, iso);
-      } else {
-        addTask(part, iso);
-      }
+      const id =
+        i > 0 && firstProject && !part.startsWith(":")
+          ? addTask(`:${firstProject} ${part}`, iso)
+          : addTask(part, iso);
+      if (id) lastId = id;
     });
     setValue("");
-    setDue(undefined);
+    if (lastId) setSelectedTaskId(lastId);
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
@@ -199,7 +197,7 @@ export function TaskInput() {
 
   const { projectName: parsedProject } = parseProjectFromInput(value);
   const detectedUrl = useMemo(() => {
-    const m = value.match(/https?:\/\/\S+/);
+    const m = value.match(/(?:https?|file):\/\/\S+/);
     return m ? m[0] : null;
   }, [value]);
 
@@ -218,8 +216,11 @@ export function TaskInput() {
                 if (searchMode) setSearchQuery(e.target.value);
               }}
               onKeyDown={onKeyDown}
-              placeholder={searchMode ? (lang === "ja" ? "キーワードで検索..." : "Search...") : t(lang, "placeholder")}
-              className={`w-full pl-4 pr-10 py-2.5 rounded-xl border-0 outline-none transition-all text-[13px] placeholder:text-black/30 dark:placeholder:text-white/28${bulkCount >= 2 && !searchMode ? " pr-16" : ""} ${searchMode ? "bg-blue-50/60 dark:!bg-blue-950/25 shadow-[0_0_0_2px_rgba(59,130,246,0.45)]" : "bg-black/[0.055] dark:!bg-white/[0.08]"}`}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder={searchMode || !isFocused ? "" : t(lang, showDueDate ? "placeholderWithDate" : "placeholder")}
+              style={{ transition: "background-color 0.5s ease-out, box-shadow 0.7s ease-in" }}
+              className={`w-full pl-4 pr-10 py-2.5 rounded-xl border-0 outline-none text-[13px] placeholder:text-black/30 dark:placeholder:text-white/28 bg-black/[0.055] dark:!bg-white/[0.08]${bulkCount >= 2 && !searchMode ? " pr-16" : ""} ${searchMode ? "!shadow-[inset_0_12px_16px_-6px_rgba(0,0,0,0.18)] dark:!shadow-[inset_0_16px_22px_-6px_rgba(255,166,64,0.24)]" : ""}`}
             />
             {bulkCount >= 2 ? (
               <span className="absolute right-9 top-1/2 -translate-y-1/2 text-[11px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full pointer-events-none">
@@ -227,7 +228,7 @@ export function TaskInput() {
               </span>
             ) : null}
             {searchMode ? (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-blue-400 dark:text-blue-400 pointer-events-none">
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-black/35 dark:text-white/35 pointer-events-none">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -270,45 +271,6 @@ export function TaskInput() {
             </div>
           )}
         </div>
-        {showDueDate && !searchMode && (
-          <div className="relative">
-            <button
-              ref={dateBtnRef}
-              onClick={() => setShowDate((v) => !v)}
-              className={`h-[42px] px-2.5 rounded-xl flex items-center gap-1.5 text-[12px] transition-colors ${due ? "bg-black/[0.055] dark:!bg-white/[0.08] text-ink" : "bg-black/[0.055] dark:!bg-white/[0.08] text-black/35 dark:text-white/35 hover:text-ink dark:hover:text-white"}`}
-              title={t(lang, "titleSetDue")}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              {due && <span>{due.getMonth() + 1}/{due.getDate()}</span>}
-            </button>
-            <Popover open={showDate} onClose={() => setShowDate(false)} anchorRef={dateBtnRef}>
-              <DayPicker
-                mode="single"
-                selected={due}
-                onSelect={(d) => {
-                  setDue(d);
-                  setShowDate(false);
-                }}
-              />
-              {due && (
-                <button
-                  onClick={() => {
-                    setDue(undefined);
-                    setShowDate(false);
-                  }}
-                  className="w-full text-[12px] py-1 text-subink hover:bg-black/5 rounded"
-                >
-                  {t(lang, "clear")}
-                </button>
-              )}
-            </Popover>
-          </div>
-        )}
       </div>
       {/* プロジェクト表示とタグヒント */}
       {!searchMode && (parsedProject || matchedTags.length > 0) && (
