@@ -1,5 +1,8 @@
 # FastTask
 
+<img width="592" height="612" alt="スクリーンショット 2026-07-07 2 31 48" src="https://github.com/user-attachments/assets/c593b722-4075-454b-8897-a575573fe07a" />
+
+
 Create, update, and close tasks fast.
 
 ## Create Tasks
