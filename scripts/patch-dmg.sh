@@ -2,7 +2,8 @@
 # ビルド済み DMG に修正スクリプトを追加する
 set -e
 
-DMG_SRC="src-tauri/target/release/bundle/dmg/FastTask_1.1.0_aarch64.dmg"
+VERSION=$(node -p "require('./package.json').version")
+DMG_SRC="src-tauri/target/release/bundle/dmg/FastTask_${VERSION}_aarch64.dmg"
 COMMAND_FILE="src-tauri/dmg-resources/FastTaskを修正する.command"
 TMP_RW="/tmp/fasttask_rw.dmg"
 MOUNT_POINT="/tmp/fasttask_mount"
