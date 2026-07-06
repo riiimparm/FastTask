@@ -1,46 +1,46 @@
 # FastTask
 
-毎日のタスクをサクッと管理できる、macOS向けのシンプルなタスク管理アプリです。
+<img width="592" height="612" alt="スクリーンショット 2026-07-07 2 31 48" src="https://github.com/user-attachments/assets/c593b722-4075-454b-8897-a575573fe07a" />
 
-## できること
 
-- タスクをすばやく入力・管理
-- プロジェクトごとにタスクをグループ化して表示
-- 今日完了したタスクをMarkdown形式でクリップボードにコピー
-- タグで自動分類
+Create, update, and close tasks fast.
 
-## 使い方
+## Create Tasks
 
-1. テキストボックスにタスク名を入力して `Enter`
-2. チェックボックスをクリックで完了/未完了を切り替え
-3. 「今日の完了をコピー」ボタンで日報作成に活用
+Input format:
 
-**プロジェクト名をつけるには:**  
-`:ProjectName タスク名` のように、先頭に `:プロジェクト名 ` と入力します。
+:`project-name` `title` `url` `date`
 
-## セットアップ
+Create multiple tasks at once:
+
+:`project-name` `title1`, `title2`, `title3` ...
+
+## Features
+
+- Copy Today's Done
+- Task Relationships
+- MUST/PENDING Labels
+- Focus Timer
+- Calendar
+
+## Dev
 
 ```bash
-# 依存パッケージをインストール
 pnpm install
-
-# 開発用に起動
 pnpm tauri dev
-
-# ビルド
 pnpm tauri build
 ```
 
 ## インストール時の注意（macOS）
 
-DMGからインストール後に「壊れている」と表示された場合は、ターミナルで以下を実行してください：
+If you see a "damaged" error after installing from a DMG, run the following command in Terminal:
 
 ```bash
 xattr -cr /Applications/FastTask.app
 ```
 
-## 動作環境
+## Requirements
 
 - macOS
 - Node.js + pnpm
-- Rust（Tauriが必要とします）
+- Rust (required by Tauri)
