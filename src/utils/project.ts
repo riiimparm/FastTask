@@ -33,3 +33,8 @@ export function todayIso(): string {
 export function isSameDay(iso: string, dayIso: string): boolean {
   return iso.slice(0, 10) === dayIso;
 }
+
+/** 期限が今日のtodoタスクは、isMinimumフラグに関わらず強制的にMust扱いにする */
+export function isMustTask(task: { status: string; isMinimum?: boolean; dueDate?: string }): boolean {
+  return !!task.isMinimum || (task.status === "todo" && task.dueDate === todayIso());
+}

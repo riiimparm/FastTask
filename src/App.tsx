@@ -19,6 +19,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
 import { checkForUpdate, UpdateInfo } from "./utils/updater";
+import { isMustTask } from "./utils/project";
 
 function AppInner() {
   const init = useStore((s) => s.init);
@@ -63,6 +64,7 @@ function AppInner() {
     setFocusMinutes,
     mainInputRef,
     triggerVibration,
+    triggerCompleting,
     searchMode,
     searchQuery,
     setSearchMode,
@@ -237,11 +239,16 @@ function AppInner() {
   const tasksRef = useRef(tasks);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
+  // 確認モーダルの「閉じる」から呼ぶ実クローズが、自身のonCloseRequestedに
+  // 再度引っかかって止まらないようにするフラグ
+  const forceCloseRef = useRef(false);
+
   // ウィンドウ閉じる前に isMinimum 未完了タスクがあれば確認モーダル表示（1度だけ登録）
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     getCurrentWindow().onCloseRequested(async (event) => {
-      const hasMinimum = tasksRef.current.some((t) => t.status === "todo" && t.isMinimum);
+      if (forceCloseRef.current) return;
+      const hasMinimum = tasksRef.current.some((t) => isMustTask(t));
       if (hasMinimum) {
         event.preventDefault();
         setShowCloseConfirm(true);
@@ -530,21 +537,39 @@ function AppInner() {
         if (bulkSelected.size > 0) {
           const allLocked = [...bulkSelected].some((id) => hasUndoneDescendants(id, tasks));
           if (allLocked) { setToast(t(lang, "childrenPending")); return; }
-          bulkSelected.forEach((id) => toggleTask(id));
-          clearBulkSelect();
+          const ids = [...bulkSelected];
+          const todoIds = ids.filter((id) => tasks.find((tt) => tt.id === id)?.status === "todo");
+          const finishBulk = () => {
+            ids.forEach((id) => toggleTask(id));
+            clearBulkSelect();
+          };
+          if (todoIds.length > 0) {
+            triggerCompleting(todoIds, finishBulk);
+          } else {
+            finishBulk();
+          }
         } else {
           if (hasUndoneDescendants(selectedTaskId, tasks)) {
             setToast(t(lang, "childrenPending")); return;
           }
-          toggleTask(selectedTaskId);
-          // 完了後の選択移動：上 → 下 → 入力欄
-          if (currentIdx > 0) {
-            setSelectedTaskId(todoTasks[currentIdx - 1].id);
-          } else if (currentIdx < todoTasks.length - 1) {
-            setSelectedTaskId(todoTasks[currentIdx + 1].id);
+          const completedId = selectedTaskId;
+          const wasTodo = tasks.find((tt) => tt.id === completedId)?.status === "todo";
+          const finish = () => {
+            toggleTask(completedId);
+            // 完了後の選択移動：上 → 下 → 入力欄
+            if (currentIdx > 0) {
+              setSelectedTaskId(todoTasks[currentIdx - 1].id);
+            } else if (currentIdx < todoTasks.length - 1) {
+              setSelectedTaskId(todoTasks[currentIdx + 1].id);
+            } else {
+              setSelectedTaskId(null);
+              focusInput();
+            }
+          };
+          if (wasTodo) {
+            triggerCompleting([completedId], finish);
           } else {
-            setSelectedTaskId(null);
-            focusInput();
+            finish();
           }
         }
         return;
@@ -786,9 +811,9 @@ function AppInner() {
       )}
       {showCloseConfirm && (
         <CloseConfirmModal
-          remainingCount={tasks.filter((t) => t.status === "todo" && t.isMinimum).length}
+          remainingCount={tasks.filter((t) => isMustTask(t)).length}
           lang={lang}
-          onClose={async () => { await getCurrentWindow().close(); }}
+          onClose={async () => { forceCloseRef.current = true; await getCurrentWindow().close(); }}
           onCancel={() => setShowCloseConfirm(false)}
         />
       )}

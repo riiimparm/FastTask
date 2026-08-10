@@ -123,3 +123,21 @@ export function dateToIso(date: Date): string {
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${mo}-${d}`;
 }
+
+/** iso日付までの残り日数（過去なら負数） */
+export function daysUntil(iso: string, today: Date = new Date()): number {
+  const due = new Date(iso + "T00:00:00");
+  const base = new Date(today);
+  base.setHours(0, 0, 0, 0);
+  return Math.round((due.getTime() - base.getTime()) / 86400000);
+}
+
+/** 期限ウィンドウ（今日〜3ヶ月後）内かどうか */
+export function isWithinDueWindow(iso: string, today: Date = new Date()): boolean {
+  const due = new Date(iso + "T00:00:00");
+  const start = new Date(today);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 3);
+  return due >= start && due <= end;
+}

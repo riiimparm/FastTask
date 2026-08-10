@@ -190,7 +190,8 @@ export const useStore = create<State>((set, get) => ({
     const trimmed = rawInput.trim();
     if (!trimmed) return "";
     get().pushUndo();
-    const { text: withoutUrl, url: autoUrl } = extractUrl(trimmed);
+    const urlEnabled = get().settings.urlEnabled ?? true;
+    const { text: withoutUrl, url: autoUrl } = urlEnabled ? extractUrl(trimmed) : { text: trimmed, url: undefined };
     const { projectName, body } = parseProjectFromInput(withoutUrl);
     const title = projectName ? `:${projectName} ${body}` : body;
     const titleForTagMatch = body || title;
@@ -243,7 +244,10 @@ export const useStore = create<State>((set, get) => ({
       if (t.id !== id) return t;
       const next = { ...t, ...patch };
       if (patch.title !== undefined) {
-        const { text: withoutUrl, url: autoUrl } = extractUrl(patch.title.trim());
+        const urlEnabled = get().settings.urlEnabled ?? true;
+        const { text: withoutUrl, url: autoUrl } = urlEnabled
+          ? extractUrl(patch.title.trim())
+          : { text: patch.title.trim(), url: undefined };
         const { projectName, body } = parseProjectFromInput(withoutUrl);
         next.title = projectName ? `:${projectName} ${body}` : body;
         next.projectName = projectName;

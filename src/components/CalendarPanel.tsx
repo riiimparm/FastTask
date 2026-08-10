@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
 import { t } from "../i18n";
@@ -43,22 +43,21 @@ function isSameDay(a: Date, b: Date): boolean {
 
 export function CalendarPanel() {
   const tasks = useStore((s) => s.tasks);
-  const addTask = useStore((s) => s.addTask);
   const toggleTask = useStore((s) => s.toggleTask);
   const lang = useStore((s) => s.settings.language);
-  const { setSelectedTaskId } = useUiContext();
+  const { setPendingMainInput, selectedTaskId, calendarJumpIso, setCalendarJumpIso } = useUiContext();
 
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [weekdaysOnly, setWeekdaysOnly] = useState(false);
-  const [creatingIso, setCreatingIso] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const today = useMemo(() => new Date(), []);
+  const today = new Date();
 
+  // タスク追加/更新で確定した期限にカレンダーの表示月をジャンプさせる
   useEffect(() => {
-    if (creatingIso) inputRef.current?.focus();
-  }, [creatingIso]);
+    if (!calendarJumpIso) return;
+    setAnchorDate(new Date(calendarJumpIso + "T00:00:00"));
+    setCalendarJumpIso(null);
+  }, [calendarJumpIso, setCalendarJumpIso]);
 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, typeof tasks>();
@@ -104,12 +103,8 @@ export function CalendarPanel() {
     setAnchorDate(new Date());
   }
 
-  function submitDraft(iso: string) {
-    if (!draft.trim()) return;
-    const id = addTask(draft, iso);
-    if (id) setSelectedTaskId(id);
-    setDraft("");
-    inputRef.current?.focus();
+  function openMainInputFor(day: Date) {
+    setPendingMainInput(` ${day.getMonth() + 1}/${day.getDate()}`);
   }
 
   const headerLabel =
@@ -178,12 +173,21 @@ export function CalendarPanel() {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-1 pb-2">
+      <div
+        className={
+          viewMode === "week"
+            ? "flex-1 flex flex-col overflow-hidden px-1 pb-2"
+            : "flex-1 overflow-y-auto scrollbar-thin px-1 pb-2"
+        }
+      >
         {weeks.map((week, wi) => (
           <div
             key={wi}
-            className="grid gap-[2px]"
-            style={{ gridTemplateColumns: `repeat(${visibleDayIndexes.length}, minmax(0, 1fr))` }}
+            className={`grid gap-[2px] ${viewMode === "week" ? "flex-1" : ""}`}
+            style={{
+              gridTemplateColumns: `repeat(${visibleDayIndexes.length}, minmax(0, 1fr))`,
+              ...(viewMode === "week" ? { gridTemplateRows: "1fr" } : {}),
+            }}
           >
             {visibleDayIndexes.map((di) => {
               const day = week[di];
@@ -196,88 +200,65 @@ export function CalendarPanel() {
                     ...tasks.filter((tk) => tk.isMinimum && tk.dueDate !== iso),
                   ]
                 : tasksByDate.get(iso) ?? [];
-              const isCreating = creatingIso === iso;
-              const visibleTasks = dayTasks.slice(0, 3);
-              const overflow = dayTasks.length - visibleTasks.length;
+              const visibleTasks = viewMode === "week" ? dayTasks : dayTasks.slice(0, 3);
+              const overflow = viewMode === "week" ? 0 : dayTasks.length - visibleTasks.length;
 
               return (
                 <div
                   key={iso}
-                  onClick={() => {
-                    if (!isCreating) setCreatingIso(iso);
-                  }}
-                  className={`min-h-[64px] rounded-md p-1 text-left cursor-text transition-colors ${
-                    isCreating ? "bg-accent/10 ring-1 ring-accent/40" : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                  onClick={() => openMainInputFor(day)}
+                  className={`${viewMode === "week" ? "h-full flex flex-col" : "min-h-[64px]"} rounded-md p-1 text-left cursor-text transition-colors ${
+                    isToday
+                      ? "bg-black/[0.04] hover:bg-black/[0.06] dark:bg-white/[0.05] dark:hover:bg-white/[0.07]"
+                      : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                   } ${isCurrentMonth ? "" : "opacity-40"}`}
                 >
-                  <div
-                    className={`text-[10px] mb-0.5 ${
-                      isToday
-                        ? "inline-flex items-center justify-center w-4 h-4 rounded-[3px] bg-[#ffffff] text-[#000000] font-semibold"
-                        : "text-subink"
-                    }`}
-                  >
-                    {day.getDate()}
-                  </div>
-                  <div className="space-y-0.5">
-                    {visibleTasks.map((task) => (
-                      <div key={task.id} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1">
-                        <button
-                          onClick={() => toggleTask(task.id)}
-                          className={`w-2.5 h-2.5 rounded-[2px] border flex items-center justify-center flex-shrink-0 transition-all ${
-                            task.status === "done"
-                              ? "bg-ink border-ink dark:bg-white/90 dark:border-white/90"
-                              : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
+                  <div className="text-[10px] mb-0.5 text-subink shrink-0">{day.getDate()}</div>
+                  <div className={`space-y-0.5 ${viewMode === "week" ? "flex-1 min-h-0 overflow-y-auto scrollbar-thin" : ""}`}>
+                    {visibleTasks.map((task) => {
+                      const label =
+                        task.projectName && task.title.startsWith(`:${task.projectName} `)
+                          ? task.title.slice(task.projectName.length + 2)
+                          : task.title;
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`flex items-center gap-1 rounded px-0.5 -mx-0.5 ${
+                            selectedTaskId === task.id ? "bg-black/10 dark:bg-white/15" : ""
                           }`}
                         >
-                          {task.status === "done" && (
-                            <svg
-                              width="6"
-                              height="6"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="text-white dark:text-ink"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </button>
-                        <span className={`text-[9.5px] truncate ${task.status === "done" ? "line-through text-subink/60" : ""}`}>
-                          {task.title}
-                        </span>
-                      </div>
-                    ))}
+                          <button
+                            onClick={() => toggleTask(task.id)}
+                            className={`w-2.5 h-2.5 rounded-[2px] border flex items-center justify-center flex-shrink-0 transition-all ${
+                              task.status === "done"
+                                ? "bg-ink border-ink dark:bg-white/90 dark:border-white/90"
+                                : "border-black/30 hover:border-black/60 dark:border-white/30 dark:hover:border-white/60"
+                            }`}
+                          >
+                            {task.status === "done" && (
+                              <svg
+                                width="6"
+                                height="6"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-white dark:text-ink"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </button>
+                          <span className={`text-[9.5px] truncate ${task.status === "done" ? "line-through text-subink/60" : ""}`}>
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
                     {overflow > 0 && <div className="text-[9px] text-subink">+{overflow}</div>}
-                    {isCreating && (
-                      <input
-                        ref={inputRef}
-                        autoFocus
-                        value={draft}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            submitDraft(iso);
-                          }
-                          if (e.key === "Escape") {
-                            e.preventDefault();
-                            setCreatingIso(null);
-                            setDraft("");
-                          }
-                        }}
-                        onBlur={() => {
-                          setCreatingIso(null);
-                          setDraft("");
-                        }}
-                        placeholder={t(lang, "calendarAddPlaceholder")}
-                        className="w-full text-[9.5px] bg-transparent outline-none border-b border-accent/40 placeholder:text-subink/50"
-                      />
-                    )}
                   </div>
                 </div>
               );
