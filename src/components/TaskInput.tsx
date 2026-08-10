@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
 import { parseProjectFromInput } from "../utils/project";
-import { parseDateFromText, formatDateShort, dateToIso } from "../utils/parseDate";
+import { parseDateFromText, formatDateShort, dateToIso, isWithinDueWindow } from "../utils/parseDate";
 import { buildDfsOrder } from "../utils/taskTree";
 import { t } from "../i18n";
+import { DueDateConfirmModal } from "./DueDateConfirmModal";
 
 export function TaskInput() {
   const addTask = useStore((s) => s.addTask);
@@ -13,12 +14,39 @@ export function TaskInput() {
   const lang = useStore((s) => s.settings.language);
   const showDueDate = useStore((s) => s.settings.showDueDate ?? false);
   const tagsEnabled = useStore((s) => s.settings.tagsEnabled ?? false);
+  const urlEnabled = useStore((s) => s.settings.urlEnabled ?? true);
   const [value, setValue] = useState("");
   const [highlight, setHighlight] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<{
+    parts: string[];
+    iso?: string;
+    firstProject?: string;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const { mainInputRef, setSelectedTaskId, searchMode, searchQuery, setSearchMode, setSearchQuery } = useUiContext();
+  const {
+    mainInputRef,
+    setSelectedTaskId,
+    searchMode,
+    searchQuery,
+    setSearchMode,
+    setSearchQuery,
+    pendingMainInput,
+    setPendingMainInput,
+    setCalendarJumpIso,
+  } = useUiContext();
+
+  // カレンダーの日付セルクリックで日付付きテキストを差し込み、日付の手前にカーソルを置く
+  useEffect(() => {
+    if (pendingMainInput === null) return;
+    setValue(pendingMainInput);
+    setPendingMainInput(null);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(0, 0);
+    });
+  }, [pendingMainInput, setPendingMainInput]);
 
   // mainInputRefとinputRefを同期
   useEffect(() => {
@@ -90,6 +118,20 @@ export function TaskInput() {
     });
   }, [value]);
 
+  function finalizeSubmit(parts: string[], iso: string | undefined, firstProject: string | undefined) {
+    let lastId = "";
+    parts.forEach((part, i) => {
+      const id =
+        i > 0 && firstProject && !part.startsWith(":")
+          ? addTask(`:${firstProject} ${part}`, iso)
+          : addTask(part, iso);
+      if (id) lastId = id;
+    });
+    setValue("");
+    if (lastId) setSelectedTaskId(lastId);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
   function submit() {
     if (!value.trim()) return;
     const effectiveDue = detectedDate?.date ?? undefined;
@@ -105,17 +147,12 @@ export function TaskInput() {
 
     const parts = submitValue.split(",").map((s) => s.trim()).filter(Boolean);
     const { projectName: firstProject } = parseProjectFromInput(parts[0] ?? "");
-    let lastId = "";
-    parts.forEach((part, i) => {
-      const id =
-        i > 0 && firstProject && !part.startsWith(":")
-          ? addTask(`:${firstProject} ${part}`, iso)
-          : addTask(part, iso);
-      if (id) lastId = id;
-    });
-    setValue("");
-    if (lastId) setSelectedTaskId(lastId);
-    requestAnimationFrame(() => inputRef.current?.focus());
+
+    if (iso && !isWithinDueWindow(iso)) {
+      setPendingSubmit({ parts, iso, firstProject });
+      return;
+    }
+    finalizeSubmit(parts, iso, firstProject);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -197,9 +234,10 @@ export function TaskInput() {
 
   const { projectName: parsedProject } = parseProjectFromInput(value);
   const detectedUrl = useMemo(() => {
+    if (!urlEnabled) return null;
     const m = value.match(/(?:https?|file):\/\/\S+/);
     return m ? m[0] : null;
-  }, [value]);
+  }, [urlEnabled, value]);
 
   return (
     <div className="px-4 py-3 border-b border-black/5">
@@ -314,6 +352,19 @@ export function TaskInput() {
           </svg>
           {t(lang, "splitHint")}
         </div>
+      )}
+      {pendingSubmit && (
+        <DueDateConfirmModal
+          iso={pendingSubmit.iso!}
+          lang={lang}
+          onCancel={() => setPendingSubmit(null)}
+          onConfirm={() => {
+            const p = pendingSubmit;
+            setPendingSubmit(null);
+            finalizeSubmit(p.parts, p.iso, p.firstProject);
+            if (p.iso) setCalendarJumpIso(p.iso);
+          }}
+        />
       )}
     </div>
   );

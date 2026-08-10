@@ -27,13 +27,13 @@ export type Theme = "light" | "dark" | "system";
 export type Language = "ja" | "en";
 
 export interface Settings {
-  copyIncludeUrl: boolean;
   autoDeleteOldCompleted: boolean;
   groupingEnabled: boolean;
   copyGroupingEnabled: boolean;
   showDueDate: boolean;
   tagsEnabled: boolean;
   calendarEnabled: boolean;
+  urlEnabled: boolean;
   focusShortcut: string;
   lastFocusMinutes: number;
   theme: Theme;
@@ -50,13 +50,13 @@ export interface AppData {
 export const SCHEMA_VERSION = "1";
 
 export const defaultSettings: Settings = {
-  copyIncludeUrl: false,
   autoDeleteOldCompleted: true,
   groupingEnabled: true,
   copyGroupingEnabled: true,
   showDueDate: false,
   tagsEnabled: false,
   calendarEnabled: false,
+  urlEnabled: true,
   focusShortcut: "",
   lastFocusMinutes: 25,
   theme: "system",

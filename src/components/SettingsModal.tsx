@@ -10,10 +10,10 @@ interface Props {
   onClose: () => void;
 }
 
-type ToggleKey = "copyIncludeUrl" | "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled" | "calendarEnabled";
+type ToggleKey = "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled" | "calendarEnabled" | "urlEnabled";
 
 const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
-  { key: "copyIncludeUrl", label: "setting_copyIncludeUrl", desc: "setting_copyIncludeUrl_desc" },
+  { key: "urlEnabled", label: "setting_urlEnabled", desc: "setting_urlEnabled_desc" },
   { key: "copyGroupingEnabled", label: "setting_copyGroupingEnabled", desc: "setting_copyGroupingEnabled_desc" },
   { key: "autoDeleteOldCompleted", label: "setting_autoDeleteOldCompleted", desc: "setting_autoDeleteOldCompleted_desc" },
   { key: "showDueDate", label: "setting_showDueDate", desc: "setting_showDueDate_desc" },

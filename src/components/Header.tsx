@@ -46,11 +46,11 @@ export function Header({ onOpenSettings }: Props) {
     setShowMenu(false);
     let md = "";
     if (target === "today") {
-      md = buildTodayCompletedMarkdown(tasks, tags, settings.copyIncludeUrl, settings.copyGroupingEnabled, lang);
+      md = buildTodayCompletedMarkdown(tasks, tags, settings.urlEnabled, settings.copyGroupingEnabled, lang);
     } else if (target === "all") {
-      md = buildAllCompletedMarkdown(tasks, tags, settings.copyIncludeUrl, settings.copyGroupingEnabled, lang);
+      md = buildAllCompletedMarkdown(tasks, tags, settings.urlEnabled, settings.copyGroupingEnabled, lang);
     } else {
-      md = buildTodoMarkdown(tasks, tags, settings.copyIncludeUrl, settings.copyGroupingEnabled, lang);
+      md = buildTodoMarkdown(tasks, tags, settings.urlEnabled, settings.copyGroupingEnabled, lang);
     }
     try {
       await writeText(md);
@@ -70,8 +70,13 @@ export function Header({ onOpenSettings }: Props) {
   ];
 
   return (
-    <header className="glass sticky top-0 z-30 px-4 py-3 flex items-center justify-between border-b border-black/5">
-      <div className="font-semibold tracking-tight">{t(lang, "appTitle")}</div>
+    <header
+      data-tauri-drag-region
+      className="glass sticky top-0 z-30 pl-20 pr-4 py-3 flex items-center justify-between border-b border-black/5"
+    >
+      <div data-tauri-drag-region className="font-semibold tracking-tight">
+        {t(lang, "appTitle")}
+      </div>
       <div className="flex items-center gap-2">
         <div ref={menuRef} className="relative">
           <button

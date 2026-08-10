@@ -6,8 +6,9 @@ import { useStore } from "../store";
 import { useUiContext } from "../context/UiContext";
 import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
-import { todayIso, parseProjectFromInput } from "../utils/project";
-import { parseDateFromText, dateToIso } from "../utils/parseDate";
+import { DueDateConfirmModal } from "./DueDateConfirmModal";
+import { parseProjectFromInput, isMustTask } from "../utils/project";
+import { parseDateFromText, dateToIso, daysUntil, isWithinDueWindow } from "../utils/parseDate";
 import { t } from "../i18n";
 import { getDepth, hasUndoneDescendants } from "../utils/taskTree";
 
@@ -28,11 +29,12 @@ export function TaskItem({ task, draggable = true }: Props) {
   const grouping = settings.groupingEnabled;
   const showDueDate = settings.showDueDate ?? false;
   const tagsEnabled = settings.tagsEnabled ?? false;
+  const urlEnabled = settings.urlEnabled ?? true;
 
   const depth = useMemo(() => getDepth(task, allTasks), [task, allTasks]);
   const isLocked = useMemo(() => hasUndoneDescendants(task.id, allTasks), [task.id, allTasks]);
 
-  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId } = useUiContext();
+  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId, setCalendarJumpIso, completingTaskIds } = useUiContext();
   const isSelected = selectedTaskId === task.id;
   const isFocused = focusedTaskId === task.id;
   const isBulkSelected = bulkSelected.has(task.id);
@@ -45,6 +47,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   };
 
   const [completing, setCompleting] = useState(false);
+  const isCompleting = completing || completingTaskIds.has(task.id);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.title);
   const editRef = useRef<HTMLInputElement | null>(null);
@@ -58,6 +61,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   const [showTags, setShowTags] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
   const [urlInput, setUrlInput] = useState(task.url ?? "");
+  const [pendingUpdate, setPendingUpdate] = useState<{ title: string; dueDate?: string } | null>(null);
 
   const tagsBtn = useRef<HTMLButtonElement | null>(null);
   const urlBtn = useRef<HTMLButtonElement | null>(null);
@@ -82,21 +86,27 @@ export function TaskItem({ task, draggable = true }: Props) {
 
   function commitEdit() {
     const trimmed = editValue.trim();
-    if (trimmed) {
-      let title = trimmed;
-      const updates: { title: string; dueDate?: string } = { title };
-      if (showDueDate) {
-        const { projectName, body } = parseProjectFromInput(trimmed);
-        const detected = parseDateFromText(body, new Date());
-        if (detected) {
-          const prefix = projectName ? `:${projectName} ` : "";
-          title = (prefix + detected.textWithoutDate).trim();
-          updates.title = title;
-          updates.dueDate = dateToIso(detected.date);
-        }
-      }
-      updateTask(task.id, updates);
+    if (!trimmed) {
+      setEditing(false);
+      return;
     }
+    let title = trimmed;
+    const updates: { title: string; dueDate?: string } = { title };
+    if (showDueDate) {
+      const { projectName, body } = parseProjectFromInput(trimmed);
+      const detected = parseDateFromText(body, new Date());
+      if (detected) {
+        const prefix = projectName ? `:${projectName} ` : "";
+        title = (prefix + detected.textWithoutDate).trim();
+        updates.title = title;
+        updates.dueDate = dateToIso(detected.date);
+      }
+    }
+    if (updates.dueDate && !isWithinDueWindow(updates.dueDate)) {
+      setPendingUpdate(updates);
+      return;
+    }
+    updateTask(task.id, updates);
     setEditing(false);
   }
 
@@ -107,7 +117,12 @@ export function TaskItem({ task, draggable = true }: Props) {
     });
   }
 
+  const cancellingUrlRef = useRef(false);
   function saveUrl() {
+    if (cancellingUrlRef.current) {
+      cancellingUrlRef.current = false;
+      return;
+    }
     const v = urlInput.trim();
     updateTask(task.id, { url: v || undefined });
     setShowUrl(false);
@@ -130,14 +145,8 @@ export function TaskItem({ task, draggable = true }: Props) {
 
   const due = task.dueDate;
   const dueDate = due ? new Date(due + "T00:00:00") : undefined;
-  const today = todayIso();
-  const dueClass = !due
-    ? ""
-    : due < today
-    ? "text-danger"
-    : due === today
-    ? "text-warn"
-    : "text-subink";
+  const dueDays = due && task.status === "todo" ? daysUntil(due) : null;
+  const isOverdue = dueDays !== null && dueDays < 0;
 
   return (
     <div
@@ -151,7 +160,7 @@ export function TaskItem({ task, draggable = true }: Props) {
       className={`relative group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
         border-l-[3px]
         ${vibratingTaskId === task.id ? "task-shake" : ""}
-        ${completing ? "task-sweep-left" : ""}
+        ${isCompleting ? "task-sweep-left" : ""}
         ${isSelected && !isReorderMode ? "border-black/30 dark:border-white/50 task-selected-bg" : ""}
         ${isBulkSelected ? "border-black/20 dark:border-white/35 task-bulk-bg" : ""}
         ${isFocused ? "border-black/25 dark:border-white/40 shadow-[0_0_18px_3px_rgba(255,220,80,0.13),0_2px_8px_rgba(0,0,0,0.07)]" : ""}
@@ -183,7 +192,11 @@ export function TaskItem({ task, draggable = true }: Props) {
         </button>
       )}
 
-      <div className="relative flex-shrink-0">
+      <div
+        className={`relative flex-shrink-0 transition-opacity ${
+          isMustTask(task) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
+      >
         <button
           onClick={isLocked ? undefined : handleToggle}
           title={isLocked ? t(lang, "childrenPending") : undefined}
@@ -192,7 +205,9 @@ export function TaskItem({ task, draggable = true }: Props) {
               ? "border-black/15 dark:border-white/15 cursor-not-allowed opacity-40"
               : task.status === "done"
               ? "bg-ink border-ink text-white dark:bg-white/90 dark:border-white/90 dark:text-ink"
-              : task.isMinimum
+              : isOverdue
+              ? "bg-danger border-danger"
+              : isMustTask(task)
               ? "border-black hover:border-black/70 dark:border-white dark:hover:border-white/80"
               : task.isPending
               ? "border-black/15 dark:border-white/15"
@@ -230,7 +245,7 @@ export function TaskItem({ task, draggable = true }: Props) {
               setEditValue(task.title);
               setEditing(true);
             }}
-            className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : task.isPending ? "text-subink" : ""} ${task.isMinimum && task.status !== "done" ? "font-bold" : ""}`}
+            className={`truncate cursor-text text-[14px] flex items-center gap-1 ${task.status === "done" ? "line-through text-subink" : task.isPending ? "text-subink" : ""} ${isMustTask(task) && task.status !== "done" ? "font-bold" : ""}`}
           >
 
             {task.projectName && !grouping && (
@@ -264,7 +279,7 @@ export function TaskItem({ task, draggable = true }: Props) {
           );
         })}
 
-        {task.url && (
+        {urlEnabled && task.url && (
           <button
             onClick={openTaskUrl}
             className="text-subink hover:text-accent"
@@ -282,7 +297,7 @@ export function TaskItem({ task, draggable = true }: Props) {
           <button
             onClick={() => updateTask(task.id, { dueDate: undefined })}
             title={t(lang, "titleDue")}
-            className={`text-[11px] rounded hover:bg-black/5 px-0.5 ${dueClass}`}
+            className="text-[11px] rounded hover:bg-black/5 px-0.5 text-subink"
           >
             {dueDate!.getMonth() + 1}/{dueDate!.getDate()}
           </button>
@@ -333,6 +348,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             </div>
           )}
 
+          {urlEnabled && (
           <div className="relative">
             <button
               ref={urlBtn}
@@ -348,36 +364,34 @@ export function TaskItem({ task, draggable = true }: Props) {
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
               </svg>
             </button>
-            <Popover open={showUrl} onClose={() => setShowUrl(false)} anchorRef={urlBtn}>
+            <Popover open={showUrl} onClose={saveUrl} anchorRef={urlBtn}>
               <div className="p-1 w-[240px]">
                 <input
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
+                  onBlur={saveUrl}
                   onKeyDown={(e) => {
                     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-                    if (e.key === "Enter") saveUrl();
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      saveUrl();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      cancellingUrlRef.current = true;
+                      setUrlInput(task.url ?? "");
+                      setShowUrl(false);
+                    }
                   }}
                   placeholder={t(lang, "urlPh")}
                   className="w-full px-2 py-1 rounded border border-black/10 outline-none focus:border-accent text-[12px]"
                   autoFocus
                 />
-                <div className="flex justify-end gap-1 mt-1">
-                  <button
-                    onClick={() => setShowUrl(false)}
-                    className="px-2 py-0.5 text-[11px] rounded text-subink hover:bg-black/5"
-                  >
-                    {t(lang, "cancel")}
-                  </button>
-                  <button
-                    onClick={saveUrl}
-                    className="px-2 py-0.5 text-[11px] rounded bg-accent text-white hover:opacity-90"
-                  >
-                    {t(lang, "save")}
-                  </button>
-                </div>
               </div>
             </Popover>
           </div>
+          )}
 
           <button
             onClick={() => deleteTask(task.id)}
@@ -392,6 +406,22 @@ export function TaskItem({ task, draggable = true }: Props) {
           </button>
         </div>
       </div>
+      {pendingUpdate && (
+        <DueDateConfirmModal
+          iso={pendingUpdate.dueDate!}
+          lang={lang}
+          onCancel={() => {
+            setPendingUpdate(null);
+            setEditing(false);
+          }}
+          onConfirm={() => {
+            updateTask(task.id, pendingUpdate);
+            setPendingUpdate(null);
+            setEditing(false);
+            if (pendingUpdate.dueDate) setCalendarJumpIso(pendingUpdate.dueDate);
+          }}
+        />
+      )}
     </div>
   );
 }
