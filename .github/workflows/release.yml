@@ -11,6 +11,10 @@ on:
         required: true
         default: 'v0.0.0-draft'
 
+# リリースの作成とアセット添付に必要（リポジトリ既定は read のため明示する）
+permissions:
+  contents: write
+
 jobs:
   create-release:
     runs-on: ubuntu-latest
