@@ -1,3 +1,5 @@
+mod api;
+
 use std::fs;
 use tauri::{Emitter, Manager};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
@@ -107,6 +109,8 @@ pub fn run() {
                     _ => {}
                 }
             });
+
+            api::start(app.handle().clone());
 
             Ok(())
         })

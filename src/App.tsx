@@ -15,6 +15,7 @@ import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree"
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
 import { checkForUpdate, UpdateInfo } from "./utils/updater";
@@ -209,9 +210,22 @@ function AppInner() {
       }
     }).then((f) => { unlistenUpdate = f; });
 
+    // ローカルAPI/MCP が data.json を直接書き換えたときの再読み込み
+    let unlistenExternal: (() => void) | undefined;
+    listen("external-data-changed", async () => {
+      const raw = await invoke<{ tasks?: unknown[]; tags?: unknown[] } | null>("load_data");
+      if (raw) {
+        useStore.setState({
+          tasks: (raw.tasks ?? []) as never,
+          tags: (raw.tags ?? []) as never,
+        });
+      }
+    }).then((f) => { unlistenExternal = f; });
+
     return () => {
       unlistenSettings?.();
       unlistenUpdate?.();
+      unlistenExternal?.();
     };
   }, []);
 
