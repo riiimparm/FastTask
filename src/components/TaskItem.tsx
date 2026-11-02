@@ -196,7 +196,7 @@ export function TaskItem({ task, draggable = true }: Props) {
 
       <div
         className={`relative flex-shrink-0 transition-opacity ${
-          isMustTask(task) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          isMustTask(task) || isOverdue ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         }`}
       >
         <button
