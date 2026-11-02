@@ -14,6 +14,7 @@ import { parseProjectFromInput } from "./utils/project";
 import { osNotify } from "./utils/notify";
 import { getDescendants } from "./utils/taskTree";
 import { mergeAutoTags } from "./utils/tags";
+import { play, SoundKind } from "./utils/sound";
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
@@ -112,6 +113,11 @@ function autoTagsFor(body: string, tags: Tag[]): string[] {
   return matched;
 }
 
+/** 設定が有効なときだけ操作音を鳴らす（無効時は AudioContext を作らない） */
+function sfx(get: () => State, kind: SoundKind) {
+  if (get().settings.soundEnabled) play(kind);
+}
+
 function nextOrder(tasks: Task[]): number {
   if (tasks.length === 0) return 0;
   return Math.max(...tasks.map((t) => t.order)) + 1;
@@ -136,6 +142,7 @@ export const useStore = create<State>((set, get) => ({
     if (stack.length === 0) return;
     const prev = stack[stack.length - 1];
     set({ tasks: prev, undoStack: stack.slice(0, -1) });
+    sfx(get, "nav");
     scheduleSave(get);
   },
 
@@ -210,6 +217,7 @@ export const useStore = create<State>((set, get) => ({
       order: nextOrder(todoTasks),
     };
     set({ tasks: [...get().tasks, task] });
+    sfx(get, "create");
     scheduleSave(get);
     return task.id;
   },
@@ -229,12 +237,14 @@ export const useStore = create<State>((set, get) => ({
             : t,
         ),
       });
+      sfx(get, "complete");
     } else {
       set({
         tasks: get().tasks.map((t) =>
           t.id === id ? { ...t, status: "todo", completedAt: undefined } : t,
         ),
       });
+      sfx(get, "nav");
     }
     scheduleSave(get);
   },
@@ -280,6 +290,7 @@ export const useStore = create<State>((set, get) => ({
     get().pushUndo();
     const descendantIds = new Set(getDescendants(id, get().tasks).map((t) => t.id));
     set({ tasks: get().tasks.filter((t) => t.id !== id && !descendantIds.has(t.id)) });
+    sfx(get, "delete");
     scheduleSave(get);
   },
 
@@ -400,6 +411,7 @@ export const useStore = create<State>((set, get) => ({
     set({ settings: next });
     if (patch.theme !== undefined) applyTheme(next.theme);
     if (patch.language !== undefined) document.documentElement.lang = next.language;
+    if (patch.soundEnabled) play("complete"); // ONにした瞬間に試聴
     scheduleSave(get);
   },
 
