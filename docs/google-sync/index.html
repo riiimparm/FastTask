@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google カレンダー / Google ToDo 連携セットアップ — FastTask</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#1b1b1f; --sub:#5c5f6b; --line:#e4e4e8; --code:#f4f4f6; --link:#2f6feb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16161a; --fg:#e8e8ec; --sub:#9b9ba6; --line:#2b2b33; --code:#1f1f26; --link:#7aa6ff; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Segoe UI", sans-serif;
+    line-height: 1.85; font-size: 16px;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 40px 16px 96px; }
+  nav { max-width: 720px; margin: 0 auto; padding: 24px 16px 0; font-size: 0.85rem; color: var(--sub); }
+  h1 { font-size: 1.7rem; letter-spacing: -0.01em; margin: 0 0 1.5rem; }
+  h2 { font-size: 1.2rem; margin: 2.75rem 0 0.75rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+  h2:first-of-type, hr + h2 { border-top: none; padding-top: 0; }
+  h3 { font-size: 1rem; margin: 1.75rem 0 0.5rem; }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ul, ol { padding-left: 1.4em; }
+  li + li { margin-top: 0.3em; }
+  code { background: var(--code); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.88em; }
+  pre { background: var(--code); padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  blockquote { margin: 1.25rem 0; padding: 0.1rem 1rem; border-left: 3px solid var(--line); color: var(--sub); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.93em; }
+  th, td { border: 1px solid var(--line); padding: 0.5rem 0.7rem; text-align: left; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+  img { max-width: 100%; }
+  .toc { list-style: none; padding: 0; }
+  .toc li { border-top: 1px solid var(--line); padding: 1rem 0; margin: 0; }
+  .toc a { font-size: 1.05rem; font-weight: 600; }
+  .toc p { margin: 0.25rem 0 0; color: var(--sub); font-size: 0.9rem; }
+  footer { max-width: 720px; margin: 0 auto; padding: 0 16px 64px; color: var(--sub); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<nav><a href="../">← ドキュメント一覧</a></nav>
+<main>
+<h1>Google カレンダー / Google ToDo 連携セットアップ</h1>
+<p>FastTask のタスクを <strong>Google へ書き出す（push）だけ</strong> の一方向連携です。<br>
+Google 側で作ったり編集したりした予定・ToDo が FastTask に取り込まれることはありません。</p>
+<p>アプリにはクライアントシークレットを埋め込んでいないため、<strong>各自の Google Cloud プロジェクトで<br>
+OAuth クライアントIDを発行</strong>して設定画面に入力する必要があります。以下はその手順です。</p>
+<hr>
+<h2>1. Google Cloud プロジェクトを作る</h2>
+<ol>
+<li><a href="https://console.cloud.google.com/" rel="nofollow">https://console.cloud.google.com/</a> を開く</li>
+<li>画面上部のプロジェクト選択 → 「新しいプロジェクト」</li>
+<li>プロジェクト名は何でもよい（例: <code class="notranslate">FastTask</code>）→ 作成</li>
+</ol>
+<h2>2. API を有効化する</h2>
+<p>左メニュー「API とサービス」→「ライブラリ」から、次の2つを検索して <strong>有効にする</strong>。</p>
+<ul>
+<li><strong>Google Calendar API</strong></li>
+<li><strong>Google Tasks API</strong></li>
+</ul>
+<h2>3. OAuth 同意画面を設定する</h2>
+<p>左メニュー「API とサービス」→「OAuth 同意画面」。</p>
+<ol>
+<li>User Type は <strong>外部（External）</strong> を選択（Google Workspace 組織内だけで使うなら「内部」でも可）</li>
+<li>アプリ名（例: <code class="notranslate">FastTask</code>）、ユーザーサポートメール、デベロッパー連絡先メールを入力</li>
+<li><strong>スコープ</strong>: ここでは何も追加しなくて構いません（アプリ側が要求します）。<br>
+FastTask が要求するスコープは最小限の3つだけです。
+<ul>
+<li><code class="notranslate">.../auth/calendar.events</code> … カレンダーの予定の作成・更新</li>
+<li><code class="notranslate">.../auth/tasks</code> … ToDo の作成・更新</li>
+<li><code class="notranslate">.../auth/userinfo.email</code> … 設定画面に「接続中のアカウント」を表示するためだけに使用</li>
+</ul>
+</li>
+<li><strong>テストユーザー</strong>: 「公開ステータス」が <em>テスト</em> のままで問題ありません。<br>
+「テストユーザー」に <strong>自分の Google アカウントのメールアドレスを必ず追加</strong>してください。<br>
+ここに登録していないアカウントでは認証が <code class="notranslate">access_denied</code> で失敗します。</li>
+</ol>
+<blockquote>
+<p>テストモードの refresh token は <strong>7日で失効</strong>します。失効したら設定画面で「接続を解除」→<br>
+「Googleに接続」をやり直してください。恒久的に使いたい場合はアプリを「本番」に公開します<br>
+（自分だけが使う機密スコープなら審査なしで公開できますが、警告画面は出ます）。</p>
+</blockquote>
+<h2>4. OAuth クライアントID を発行する</h2>
+<p>左メニュー「API とサービス」→「認証情報」→「認証情報を作成」→「OAuth クライアント ID」。</p>
+<ul>
+<li><strong>アプリケーションの種類: 「デスクトップ アプリ」を選んでください。</strong></li>
+<li>名前は任意（例: <code class="notranslate">FastTask desktop</code>）</li>
+</ul>
+<blockquote>
+<p><strong>リダイレクトURIの入力欄は出てきません。これで正しいです。</strong><br>
+「デスクトップ アプリ」タイプは <code class="notranslate">http://127.0.0.1:&lt;任意のポート&gt;</code> へのリダイレクトが<br>
+自動的に許可される仕様で、FastTask は起動のたびに OS から空きポートを借りて使います<br>
+（<a href="https://developers.google.com/identity/protocols/oauth2/native-app" rel="nofollow">Google: Loopback IP address flow</a>）。<br>
+もし種類を「ウェブ アプリケーション」で作ってしまうと、ポートが毎回変わるため動きません。作り直してください。</p>
+</blockquote>
+<p>発行されると <strong>クライアントID</strong> と <strong>クライアントシークレット</strong> が表示されます。両方控えます。<br>
+（デスクトップアプリのシークレットは Google の仕様上「機密ではない」扱いですが、FastTask は<br>
+念のためローカルに <code class="notranslate">600</code> パーミッションで保存します。）</p>
+<h2>5. FastTask に入力して接続する</h2>
+<ol>
+<li>FastTask の 設定（⌘,）→ <strong>Google連携</strong></li>
+<li>クライアントID / クライアントシークレットを貼り付けて「保存」</li>
+<li>「Googleに接続」を押す → 既定のブラウザが開く</li>
+<li>アカウントを選び、権限を許可する
+<ul>
+<li>「このアプリは確認されていません」と出たら「詳細」→「（アプリ名）に移動」を押す（テストモードのため）</li>
+</ul>
+</li>
+<li>ブラウザに「連携が完了しました」と出たらタブを閉じる。設定画面に接続中のアカウントが表示されます。</li>
+</ol>
+<h2>6. 書き出し設定</h2>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>項目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ToDoに書き出す</td>
+<td>タスクを Google ToDo に作成。FastTask で完了にすると Google 側も完了になります</td>
+</tr>
+<tr>
+<td>カレンダーに書き出す</td>
+<td><strong>期日のあるタスクだけ</strong>を、その日の終日イベントとして作成します</td>
+</tr>
+<tr>
+<td>自動書き出し</td>
+<td>タスクの追加・更新時に自動で push（既定OFF）。失敗してもアプリの操作は止まりません</td>
+</tr>
+<tr>
+<td>カレンダーID</td>
+<td>既定 <code class="notranslate">primary</code>（メインのカレンダー）。別カレンダーに入れるなら Google カレンダーの設定からIDをコピー</td>
+</tr>
+<tr>
+<td>ToDoリスト</td>
+<td>既定 <code class="notranslate">@default</code>。「リスト取得」を押すとリスト名から選べます</td>
+</tr>
+<tr>
+<td>今すぐ同期</td>
+<td>全タスクを手動で push</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<hr>
+<h2>仕様・制限</h2>
+<ul>
+<li><strong>一方向だけです。</strong> Google 側の変更は FastTask に戻ってきません。</li>
+<li><strong>FastTask でタスクを削除しても、Google 側は削除されません</strong>（対応表から外れるだけ）。<br>
+Google 側で手動で消してください。</li>
+<li>期日を外すと、そのタスクのカレンダー予定は削除されます。</li>
+<li>前回 push した内容（タイトル・状態・期日・URL）と変わっていないタスクは API を呼びません。</li>
+<li>自動書き出しは保存のたびに走りますが、前回の push が実行中なら今回はスキップします<br>
+（最新の状態は次の保存で反映されます）。</li>
+</ul>
+<h2>保存される場所</h2>
+<p>アプリデータフォルダ（macOS は <code class="notranslate">~/Library/Application Support/com.fasttask.desktop/</code>）。</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>ファイル</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">google.json</code></td>
+<td>クライアントID・シークレット・リフレッシュトークン・各種設定（<strong>0600</strong>）</td>
+</tr>
+<tr>
+<td><code class="notranslate">google_map.json</code></td>
+<td>FastTask のタスクID ↔ Google 側ID の対応表</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>タスク本体（<code class="notranslate">data.json</code>）に認証情報は混ざりません。<br>
+「接続を解除」を押すと Google 側でトークンを失効させ、手元の認証情報と対応表を消します。</p>
+<h2>うまくいかないとき</h2>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>症状</th>
+<th>原因と対処</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">access_denied</code></td>
+<td>OAuth同意画面の「テストユーザー」に自分のアカウントが入っていない</td>
+</tr>
+<tr>
+<td><code class="notranslate">refresh_token が返りませんでした</code></td>
+<td>同じクライアントで過去に許可済み。設定で「接続を解除」してからやり直す</td>
+</tr>
+<tr>
+<td><code class="notranslate">invalid_client</code></td>
+<td>クライアントID/シークレットの貼り間違い、または種類が「デスクトップ アプリ」でない</td>
+</tr>
+<tr>
+<td>数日経つと同期エラー</td>
+<td>テストモードの7日失効。再接続するか、アプリを本番公開する</td>
+</tr>
+<tr>
+<td><code class="notranslate">Tasks リストが見つかりません</code></td>
+<td>ToDoリストIDが違う。「リスト取得」で選び直す</td>
+</tr>
+<tr>
+<td>認証がタイムアウトしました</td>
+<td>ブラウザでの許可を5分以内に完了する必要があります</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+</main>
+<footer>FastTask — <a href="https://github.com/riiimparm/FastTask">github.com/riiimparm/FastTask</a></footer>
+</body>
+</html>

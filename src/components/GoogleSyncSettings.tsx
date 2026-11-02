@@ -29,7 +29,7 @@ interface TaskList {
 
 // SettingsModal と同じく、この画面のテキストはコンポーネント内に持つ
 /** セットアップ手順は GitHub Pages で配信（docs/ を scripts/build-docs.sh でビルド） */
-const SETUP_GUIDE_URL = "https://riiimparm.github.io/FastTask/";
+const SETUP_GUIDE_URL = "https://riiimparm.github.io/FastTask/google-sync/";
 
 const T = {
   ja: {
