@@ -114,8 +114,17 @@ export function TaskInput() {
       if (id) lastId = id;
     });
     setValue("");
-    if (lastId) setSelectedTaskId(lastId);
-    requestAnimationFrame(() => inputRef.current?.focus());
+    // 作成直後は生成されたアイテムを選択し、入力欄からフォーカスを外す
+    if (lastId) {
+      setSelectedTaskId(lastId);
+      inputRef.current?.blur();
+      // アイテムは次のレンダー後に現れるので描画を待ってからDOMフォーカスを移す
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-task-id="${lastId}"]`)?.focus();
+      });
+    } else {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
   }
 
   function submit() {

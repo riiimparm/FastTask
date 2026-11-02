@@ -156,8 +156,10 @@ export function TaskItem({ task, draggable = true }: Props) {
       }}
       style={{ ...style, paddingLeft: depth > 0 ? `${depth * 20 + 8}px` : undefined }}
       data-project={task.projectName || undefined}
+      data-task-id={task.id}
+      tabIndex={-1}
       onClick={() => setSelectedTaskId(task.id)}
-      className={`relative group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
+      className={`relative group task-item focus:outline-none ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
         border-l-[3px]
         ${vibratingTaskId === task.id ? "task-shake" : ""}
         ${isCompleting ? "task-sweep-left" : ""}
