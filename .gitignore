@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .claude/worktrees/
 CLAUDE.md
+
+# Zensical のビルド出力
+site/
