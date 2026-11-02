@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { Language } from "../types";
 
@@ -27,6 +28,9 @@ interface TaskList {
 }
 
 // SettingsModal と同じく、この画面のテキストはコンポーネント内に持つ
+/** セットアップ手順は GitHub Pages で配信（docs/ を scripts/build-docs.sh でビルド） */
+const SETUP_GUIDE_URL = "https://riiimparm.github.io/FastTask/";
+
 const T = {
   ja: {
     heading: "Google連携",
@@ -34,7 +38,8 @@ const T = {
     clientId: "クライアントID",
     clientSecret: "クライアントシークレット",
     secretSaved: "保存済み（変更する場合のみ入力）",
-    setupHint: "GCPで発行した OAuth クライアント（デスクトップアプリ）の値を入力してください。手順は docs/google-sync.md",
+    setupHint: "GCPで発行した OAuth クライアント（デスクトップアプリ）の値を入力してください。",
+    setupLink: "セットアップ手順を開く",
     connect: "Googleに接続",
     connecting: "ブラウザで認証中...",
     disconnect: "接続を解除",
@@ -62,7 +67,8 @@ const T = {
     clientId: "Client ID",
     clientSecret: "Client secret",
     secretSaved: "Saved (enter only to change)",
-    setupHint: "Enter the OAuth client (Desktop app) values issued in GCP. See docs/google-sync.md",
+    setupHint: "Enter the OAuth client (Desktop app) values issued in GCP.",
+    setupLink: "Open the setup guide",
     connect: "Connect to Google",
     connecting: "Authorizing in browser...",
     disconnect: "Disconnect",
@@ -200,7 +206,16 @@ export function GoogleSyncSettings({ lang }: { lang: Language }) {
           placeholder={cfg.hasSecret ? tx.secretSaved : "GOCSPX-..."}
           onChange={(e) => setClientSecret(e.target.value)}
         />
-        <div className="text-[11px] text-subink">{tx.setupHint}</div>
+        <div className="text-[11px] text-subink">
+          {tx.setupHint}{" "}
+          <button
+            type="button"
+            className="underline hover:no-underline"
+            onClick={() => { void openUrl(SETUP_GUIDE_URL); }}
+          >
+            {tx.setupLink}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
