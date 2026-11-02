@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useStore } from "../store";
+import { playKeystroke } from "../utils/sound";
 import { useUiContext } from "../context/UiContext";
 import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
@@ -32,6 +33,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   const urlEnabled = settings.urlEnabled ?? true;
 
   const depth = useMemo(() => getDepth(task, allTasks), [task, allTasks]);
+  const soundEnabled = useStore((s) => s.settings.soundEnabled);
   const isLocked = useMemo(() => hasUndoneDescendants(task.id, allTasks), [task.id, allTasks]);
 
   const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId, completingTaskIds } = useUiContext();
@@ -233,6 +235,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             onBlur={commitEdit}
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              if (soundEnabled) playKeystroke(e);
               if (e.key === "Enter") commitEdit();
               if (e.key === "Escape") {
                 setEditValue(task.title);

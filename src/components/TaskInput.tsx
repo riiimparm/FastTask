@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import { playKeystroke } from "../utils/sound";
 import { useUiContext } from "../context/UiContext";
 import { parseProjectFromInput } from "../utils/project";
 import { parseDateFromText, formatDateShort, dateToIso, isWithinDueWindow } from "../utils/parseDate";
@@ -150,8 +151,11 @@ export function TaskInput() {
     finalizeSubmit(parts, iso, firstProject);
   }
 
+  const soundEnabled = useStore((s) => s.settings.soundEnabled);
+
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (soundEnabled) playKeystroke(e);
 
     if (e.key === "Escape" && searchMode) {
       e.preventDefault();
