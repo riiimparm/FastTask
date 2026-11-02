@@ -169,6 +169,10 @@ fn write_data(ctx: &Ctx, data: &Value) -> Result<(), (u16, String)> {
     fs::write(&tmp, s).map_err(|e| (500, format!("write error: {e}")))?;
     fs::rename(&tmp, data_path(ctx)).map_err(|e| (500, format!("rename error: {e}")))?;
     let _ = ctx.app.emit("external-data-changed", ());
+    // HTTP API 経由の変更も自動pushの対象にする（設定OFFなら何もしない）
+    if let Some(tasks) = data.get("tasks").and_then(Value::as_array) {
+        crate::google::auto_push(ctx.app.clone(), tasks.clone());
+    }
     Ok(())
 }
 

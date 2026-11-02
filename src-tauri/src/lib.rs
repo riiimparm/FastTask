@@ -1,4 +1,5 @@
 mod api;
+mod google;
 
 use std::fs;
 use tauri::{Emitter, Manager};
@@ -59,6 +60,11 @@ async fn save_data(app: tauri::AppHandle, data: serde_json::Value) -> Result<(),
     let s = serde_json::to_string_pretty(&data).map_err(|e| format!("serialize error: {e}"))?;
     fs::write(&tmp, s).map_err(|e| format!("write error: {e}"))?;
     fs::rename(&tmp, &path).map_err(|e| format!("rename error: {e}"))?;
+
+    // Google への自動push（設定ONかつ接続済みのときだけ）。失敗しても保存は成功扱い。
+    if let Some(tasks) = data.get("tasks").and_then(|v| v.as_array()) {
+        google::auto_push(app.clone(), tasks.clone());
+    }
     Ok(())
 }
 
@@ -118,7 +124,13 @@ pub fn run() {
             load_data,
             save_data,
             register_focus_shortcut,
-            unregister_focus_shortcut
+            unregister_focus_shortcut,
+            google::google_get_config,
+            google::google_set_config,
+            google::google_connect,
+            google::google_disconnect,
+            google::google_list_tasklists,
+            google::google_push_now
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
