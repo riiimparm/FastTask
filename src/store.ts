@@ -13,6 +13,7 @@ import {
 import { parseProjectFromInput } from "./utils/project";
 import { osNotify } from "./utils/notify";
 import { getDescendants } from "./utils/taskTree";
+import { mergeAutoTags } from "./utils/tags";
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
@@ -252,7 +253,8 @@ export const useStore = create<State>((set, get) => ({
         next.title = projectName ? `:${projectName} ${body}` : body;
         next.projectName = projectName;
         if (autoUrl) next.url = autoUrl;
-        next.tags = autoTagsFor(body || next.title, get().tags);
+        // 丸ごと再計算すると既存のタグ順が壊れ手動タグも消えるのでマージする
+        next.tags = mergeAutoTags(t.tags ?? [], autoTagsFor(body || next.title, get().tags));
       }
       return next;
     });
