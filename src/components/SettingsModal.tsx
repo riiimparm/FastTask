@@ -2,6 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "../store";
 import { TagManager } from "./TagManager";
+import { GoogleSyncSettings } from "./GoogleSyncSettings";
 import { t, TKey } from "../i18n";
 import { Language, Theme } from "../types";
 
@@ -10,7 +11,7 @@ interface Props {
   onClose: () => void;
 }
 
-type ToggleKey = "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled" | "calendarEnabled" | "urlEnabled";
+type ToggleKey = "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled" | "urlEnabled" | "soundEnabled";
 
 const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
   { key: "urlEnabled", label: "setting_urlEnabled", desc: "setting_urlEnabled_desc" },
@@ -18,7 +19,7 @@ const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
   { key: "autoDeleteOldCompleted", label: "setting_autoDeleteOldCompleted", desc: "setting_autoDeleteOldCompleted_desc" },
   { key: "showDueDate", label: "setting_showDueDate", desc: "setting_showDueDate_desc" },
   { key: "tagsEnabled", label: "setting_tagsEnabled", desc: "setting_tagsEnabled_desc" },
-  { key: "calendarEnabled", label: "setting_calendarEnabled", desc: "setting_calendarEnabled_desc" },
+  { key: "soundEnabled", label: "setting_soundEnabled", desc: "setting_soundEnabled_desc" },
 ];
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -286,6 +287,10 @@ export function SettingsModal({ open, onClose }: Props) {
               <div className="text-[11px] text-subink">
                 {lang === "ja" ? "ショートカット一覧は「?」から確認できます" : "Press \"?\" to view the shortcut list"}
               </div>
+            </div>
+
+            <div className="border-t border-black/5 pt-4">
+              <GoogleSyncSettings lang={lang} />
             </div>
 
             {settings.tagsEnabled && (

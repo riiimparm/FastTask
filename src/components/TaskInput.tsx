@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
+import { playKeystroke } from "../utils/sound";
 import { useUiContext } from "../context/UiContext";
 import { parseProjectFromInput } from "../utils/project";
 import { parseDateFromText, formatDateShort, dateToIso, isWithinDueWindow } from "../utils/parseDate";
@@ -32,21 +33,7 @@ export function TaskInput() {
     searchQuery,
     setSearchMode,
     setSearchQuery,
-    pendingMainInput,
-    setPendingMainInput,
-    setCalendarJumpIso,
   } = useUiContext();
-
-  // カレンダーの日付セルクリックで日付付きテキストを差し込み、日付の手前にカーソルを置く
-  useEffect(() => {
-    if (pendingMainInput === null) return;
-    setValue(pendingMainInput);
-    setPendingMainInput(null);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(0, 0);
-    });
-  }, [pendingMainInput, setPendingMainInput]);
 
   // mainInputRefとinputRefを同期
   useEffect(() => {
@@ -128,8 +115,17 @@ export function TaskInput() {
       if (id) lastId = id;
     });
     setValue("");
-    if (lastId) setSelectedTaskId(lastId);
-    requestAnimationFrame(() => inputRef.current?.focus());
+    // 作成直後は生成されたアイテムを選択し、入力欄からフォーカスを外す
+    if (lastId) {
+      setSelectedTaskId(lastId);
+      inputRef.current?.blur();
+      // アイテムは次のレンダー後に現れるので描画を待ってからDOMフォーカスを移す
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-task-id="${lastId}"]`)?.focus();
+      });
+    } else {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
   }
 
   function submit() {
@@ -155,8 +151,11 @@ export function TaskInput() {
     finalizeSubmit(parts, iso, firstProject);
   }
 
+  const soundEnabled = useStore((s) => s.settings.soundEnabled);
+
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (soundEnabled) playKeystroke(e);
 
     if (e.key === "Escape" && searchMode) {
       e.preventDefault();
@@ -362,7 +361,6 @@ export function TaskInput() {
             const p = pendingSubmit;
             setPendingSubmit(null);
             finalizeSubmit(p.parts, p.iso, p.firstProject);
-            if (p.iso) setCalendarJumpIso(p.iso);
           }}
         />
       )}

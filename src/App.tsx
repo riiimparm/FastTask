@@ -14,8 +14,8 @@ import { t } from "./i18n";
 import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { CalendarPanel } from "./components/CalendarPanel";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
 import { checkForUpdate, UpdateInfo } from "./utils/updater";
@@ -26,7 +26,6 @@ function AppInner() {
   const loaded = useStore((s) => s.loaded);
   const grouping = useStore((s) => s.settings.groupingEnabled);
   const tagsEnabled = useStore((s) => s.settings.tagsEnabled ?? false);
-  const calendarEnabled = useStore((s) => s.settings.calendarEnabled ?? false);
   const tags = useStore((s) => s.tags);
   const lang = useStore((s) => s.settings.language);
   const lastFocusMinutes = useStore((s) => s.settings.lastFocusMinutes);
@@ -182,12 +181,11 @@ function AppInner() {
       const scaleFactor = await win.scaleFactor();
       const logical = (await win.innerSize()).toLogical(scaleFactor);
       const DEFAULT_WIDTH = 480;
-      const targetWidth = calendarEnabled ? Math.round(DEFAULT_WIDTH * 2.5) : DEFAULT_WIDTH;
-      if (Math.round(logical.width) !== targetWidth) {
-        await win.setSize(new LogicalSize(targetWidth, logical.height));
+      if (Math.round(logical.width) !== DEFAULT_WIDTH) {
+        await win.setSize(new LogicalSize(DEFAULT_WIDTH, logical.height));
       }
     })();
-  }, [calendarEnabled]);
+  }, []);
 
   useEffect(() => {
     if (!loaded) return;
@@ -212,9 +210,22 @@ function AppInner() {
       }
     }).then((f) => { unlistenUpdate = f; });
 
+    // ローカルAPI/MCP が data.json を直接書き換えたときの再読み込み
+    let unlistenExternal: (() => void) | undefined;
+    listen("external-data-changed", async () => {
+      const raw = await invoke<{ tasks?: unknown[]; tags?: unknown[] } | null>("load_data");
+      if (raw) {
+        useStore.setState({
+          tasks: (raw.tasks ?? []) as never,
+          tags: (raw.tags ?? []) as never,
+        });
+      }
+    }).then((f) => { unlistenExternal = f; });
+
     return () => {
       unlistenSettings?.();
       unlistenUpdate?.();
+      unlistenExternal?.();
     };
   }, []);
 
@@ -777,11 +788,6 @@ function AppInner() {
         {!focusedTaskId && <CompletedSection />}
       </main>
       </div>
-      {calendarEnabled && (
-        <div className="flex-1 min-w-0 border-l border-black/5 flex flex-col min-h-0">
-          <CalendarPanel />
-        </div>
-      )}
       </div>
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}

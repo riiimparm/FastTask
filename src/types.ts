@@ -32,8 +32,8 @@ export interface Settings {
   copyGroupingEnabled: boolean;
   showDueDate: boolean;
   tagsEnabled: boolean;
-  calendarEnabled: boolean;
   urlEnabled: boolean;
+  soundEnabled: boolean;
   focusShortcut: string;
   lastFocusMinutes: number;
   theme: Theme;
@@ -55,8 +55,8 @@ export const defaultSettings: Settings = {
   copyGroupingEnabled: true,
   showDueDate: false,
   tagsEnabled: false,
-  calendarEnabled: false,
   urlEnabled: true,
+  soundEnabled: false,
   focusShortcut: "",
   lastFocusMinutes: 25,
   theme: "system",

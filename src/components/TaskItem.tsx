@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useStore } from "../store";
+import { playKeystroke } from "../utils/sound";
 import { useUiContext } from "../context/UiContext";
 import { Tag, Task } from "../types";
 import { Popover } from "./Popover";
@@ -32,9 +33,10 @@ export function TaskItem({ task, draggable = true }: Props) {
   const urlEnabled = settings.urlEnabled ?? true;
 
   const depth = useMemo(() => getDepth(task, allTasks), [task, allTasks]);
+  const soundEnabled = useStore((s) => s.settings.soundEnabled);
   const isLocked = useMemo(() => hasUndoneDescendants(task.id, allTasks), [task.id, allTasks]);
 
-  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId, setCalendarJumpIso, completingTaskIds } = useUiContext();
+  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId, completingTaskIds } = useUiContext();
   const isSelected = selectedTaskId === task.id;
   const isFocused = focusedTaskId === task.id;
   const isBulkSelected = bulkSelected.has(task.id);
@@ -156,8 +158,10 @@ export function TaskItem({ task, draggable = true }: Props) {
       }}
       style={{ ...style, paddingLeft: depth > 0 ? `${depth * 20 + 8}px` : undefined }}
       data-project={task.projectName || undefined}
+      data-task-id={task.id}
+      tabIndex={-1}
       onClick={() => setSelectedTaskId(task.id)}
-      className={`relative group task-item ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
+      className={`relative group task-item focus:outline-none ${task.projectName ? "" : "task-item-plain"} px-2 py-1.5 flex items-center gap-2 transition-all rounded-md
         border-l-[3px]
         ${vibratingTaskId === task.id ? "task-shake" : ""}
         ${isCompleting ? "task-sweep-left" : ""}
@@ -194,7 +198,7 @@ export function TaskItem({ task, draggable = true }: Props) {
 
       <div
         className={`relative flex-shrink-0 transition-opacity ${
-          isMustTask(task) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          isMustTask(task) || isOverdue ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         }`}
       >
         <button
@@ -231,6 +235,7 @@ export function TaskItem({ task, draggable = true }: Props) {
             onBlur={commitEdit}
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              if (soundEnabled) playKeystroke(e);
               if (e.key === "Enter") commitEdit();
               if (e.key === "Escape") {
                 setEditValue(task.title);
@@ -418,7 +423,6 @@ export function TaskItem({ task, draggable = true }: Props) {
             updateTask(task.id, pendingUpdate);
             setPendingUpdate(null);
             setEditing(false);
-            if (pendingUpdate.dueDate) setCalendarJumpIso(pendingUpdate.dueDate);
           }}
         />
       )}

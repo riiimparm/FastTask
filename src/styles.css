@@ -78,10 +78,6 @@ html.dark .section-header {
   color: #98989D;
 }
 
-html.dark .rdp {
-  color: #F5F5F7;
-}
-
 html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.15);
 }
@@ -161,21 +157,6 @@ html.dark .task-bulk-bg {
 .task-sweep-left {
   animation: sweep-left 0.38s cubic-bezier(0.4, 0, 1, 1) forwards;
   pointer-events: none;
-}
-
-/* react-day-picker minimal restyle */
-.rdp {
-  --rdp-accent-color: #1D1D1F;
-  --rdp-accent-background-color: rgba(0,0,0,0.08);
-  --rdp-background-color: rgba(0,0,0,0.08);
-  font-size: 13px;
-  margin: 0;
-}
-
-html.dark .rdp {
-  --rdp-accent-color: #F5F5F7;
-  --rdp-accent-background-color: rgba(255,255,255,0.12);
-  --rdp-background-color: rgba(255,255,255,0.12);
 }
 
 @keyframes fade-in {
