@@ -34,7 +34,7 @@ export function TaskItem({ task, draggable = true }: Props) {
   const depth = useMemo(() => getDepth(task, allTasks), [task, allTasks]);
   const isLocked = useMemo(() => hasUndoneDescendants(task.id, allTasks), [task.id, allTasks]);
 
-  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId, setCalendarJumpIso, completingTaskIds } = useUiContext();
+  const { selectedTaskId, focusedTaskId, isReorderMode, bulkSelected, setSelectedTaskId, vibratingTaskId, completingTaskIds } = useUiContext();
   const isSelected = selectedTaskId === task.id;
   const isFocused = focusedTaskId === task.id;
   const isBulkSelected = bulkSelected.has(task.id);
@@ -418,7 +418,6 @@ export function TaskItem({ task, draggable = true }: Props) {
             updateTask(task.id, pendingUpdate);
             setPendingUpdate(null);
             setEditing(false);
-            if (pendingUpdate.dueDate) setCalendarJumpIso(pendingUpdate.dueDate);
           }}
         />
       )}

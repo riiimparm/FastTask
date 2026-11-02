@@ -32,21 +32,7 @@ export function TaskInput() {
     searchQuery,
     setSearchMode,
     setSearchQuery,
-    pendingMainInput,
-    setPendingMainInput,
-    setCalendarJumpIso,
   } = useUiContext();
-
-  // カレンダーの日付セルクリックで日付付きテキストを差し込み、日付の手前にカーソルを置く
-  useEffect(() => {
-    if (pendingMainInput === null) return;
-    setValue(pendingMainInput);
-    setPendingMainInput(null);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(0, 0);
-    });
-  }, [pendingMainInput, setPendingMainInput]);
 
   // mainInputRefとinputRefを同期
   useEffect(() => {
@@ -362,7 +348,6 @@ export function TaskInput() {
             const p = pendingSubmit;
             setPendingSubmit(null);
             finalizeSubmit(p.parts, p.iso, p.firstProject);
-            if (p.iso) setCalendarJumpIso(p.iso);
           }}
         />
       )}

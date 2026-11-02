@@ -23,10 +23,6 @@ interface UiContextValue {
   mainInputRef: React.RefObject<HTMLInputElement | null>;
   vibratingTaskId: string | null;
   triggerVibration: (id: string) => void;
-  pendingMainInput: string | null;
-  setPendingMainInput: (text: string | null) => void;
-  calendarJumpIso: string | null;
-  setCalendarJumpIso: (iso: string | null) => void;
   completingTaskIds: Set<string>;
   triggerCompleting: (ids: string[], onDone: () => void) => void;
 }
@@ -45,8 +41,6 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
   const mainInputRef = useRef<HTMLInputElement | null>(null);
   const [vibratingTaskId, setVibratingTaskId] = useState<string | null>(null);
   const vibrateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pendingMainInput, setPendingMainInput] = useState<string | null>(null);
-  const [calendarJumpIso, setCalendarJumpIso] = useState<string | null>(null);
   const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
 
   function triggerVibration(id: string) {
@@ -100,10 +94,6 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
         mainInputRef,
         vibratingTaskId,
         triggerVibration,
-        pendingMainInput,
-        setPendingMainInput,
-        calendarJumpIso,
-        setCalendarJumpIso,
         completingTaskIds,
         triggerCompleting,
       }}

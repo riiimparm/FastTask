@@ -10,7 +10,7 @@ interface Props {
   onClose: () => void;
 }
 
-type ToggleKey = "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled" | "calendarEnabled" | "urlEnabled";
+type ToggleKey = "copyGroupingEnabled" | "autoDeleteOldCompleted" | "showDueDate" | "tagsEnabled" | "urlEnabled";
 
 const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
   { key: "urlEnabled", label: "setting_urlEnabled", desc: "setting_urlEnabled_desc" },
@@ -18,7 +18,6 @@ const TOGGLES: Array<{ key: ToggleKey; label: TKey; desc: TKey }> = [
   { key: "autoDeleteOldCompleted", label: "setting_autoDeleteOldCompleted", desc: "setting_autoDeleteOldCompleted_desc" },
   { key: "showDueDate", label: "setting_showDueDate", desc: "setting_showDueDate_desc" },
   { key: "tagsEnabled", label: "setting_tagsEnabled", desc: "setting_tagsEnabled_desc" },
-  { key: "calendarEnabled", label: "setting_calendarEnabled", desc: "setting_calendarEnabled_desc" },
 ];
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
