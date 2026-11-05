@@ -23,12 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create draft release with PR body
+      - name: Create draft release from PR overviews
         id: create-release
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const path = require('path');
+            const { buildReleaseNotes } = require(path.join(
+              process.env.GITHUB_WORKSPACE,
+              'scripts',
+              'release-notes.cjs'
+            ));
             const tagName = context.ref.startsWith('refs/tags/') 
               ? context.ref.replace('refs/tags/', '') 
               : context.payload.inputs.tag_name;
@@ -54,18 +60,18 @@ jobs:
               core.warning(`pr-release-relation.yml の読み込みに失敗: ${e.message}`);
             }
 
-            // 各PRのbodyを取得して結合
-            const bodies = [];
+            // ## 概要 だけを載せる。節が無ければ PR タイトル。
+            const pulls = [];
             for (const prNumber of prNumbers) {
               const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber,
               });
-              if (pr.body) bodies.push(pr.body.trim());
+              pulls.push({ title: pr.title, body: pr.body || '' });
             }
 
-            const body = bodies.join('\n\n---\n\n') || `Release ${tagName}`;
+            const body = buildReleaseNotes(pulls) || `Release ${tagName}`;
 
             const { data: release } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
