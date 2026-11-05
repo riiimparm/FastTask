@@ -255,6 +255,9 @@ function AppInner() {
   const forceCloseRef = useRef(false);
 
   // ウィンドウ閉じる前に isMinimum 未完了タスクがあれば確認モーダル表示（1度だけ登録）
+  // onCloseRequested があると Tauri はフレームの×を一旦止める。
+  // preventDefault しなければ API が window.destroy() で閉じるので、
+  // capabilities の core:window:allow-destroy が無いと×が無反応になる。
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     getCurrentWindow().onCloseRequested(async (event) => {
