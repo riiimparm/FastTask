@@ -43,7 +43,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg0REQ2N0E1QUIzQzgwQjMKUldTemdEeXJwV2ZkaEdEWnl1UzVicnB1NTl0bnN6QVA3eVZCdE9mdzBiaUZkL2ZwRlBBSUFNVW8K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIwRTc5ODJDRjI4QzkyOTgKUldTWWtvenlMSmpuSUZ3RDJqSFhiTmNXT2Y3OVVMTXE2ZU9YM204dU1LR1JFUUFUczJ6VTczVkQK",
       "endpoints": [
         "https://github.com/riiimparm/FastTask/releases/latest/download/latest.json"
       ]
