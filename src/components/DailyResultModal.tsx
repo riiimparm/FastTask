@@ -234,19 +234,21 @@ export function DailyResultModal({ result: r, lang, onClose }: Props) {
                   </span>
                 )}
               </div>
-              <div className="flex items-end gap-1.5 h-14">
+              <div className="flex items-end gap-1.5">
                 {r.week.map((d) => (
                   <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                    <div
-                      className="w-full rounded-sm"
-                      style={{
-                        height: `${Math.max(8, (d.count / maxWeek) * 100)}%`,
-                        background:
-                          d.date === r.date
-                            ? "linear-gradient(180deg, #fb7185, #c084fc)"
-                            : "rgba(255,255,255,0.28)",
-                      }}
-                    />
+                    <div className="w-full h-10 flex items-end">
+                      <div
+                        className="w-full rounded-sm"
+                        style={{
+                          height: `${Math.max(3, (d.count / maxWeek) * 40)}px`,
+                          background:
+                            d.date === r.date
+                              ? "linear-gradient(180deg, #fb7185, #c084fc)"
+                              : "rgba(255,255,255,0.28)",
+                        }}
+                      />
+                    </div>
                     <div className="text-[8px] text-white/45">{d.date.slice(8)}</div>
                   </div>
                 ))}
@@ -286,7 +288,7 @@ export function DailyResultModal({ result: r, lang, onClose }: Props) {
           ))}
         </div>
 
-        {index > 0 && (
+        {!isSummary && index > 0 && (
           <button
             onClick={prev}
             aria-label={ja ? "戻る" : "Back"}
