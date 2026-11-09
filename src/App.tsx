@@ -18,7 +18,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
-import { checkForUpdate, UpdateInfo } from "./utils/updater";
+import { checkForUpdate, installUpdate, UpdateInfo } from "./utils/updater";
 import { isMustTask } from "./utils/project";
 
 function AppInner() {
@@ -46,6 +46,8 @@ function AppInner() {
   const [tagFilterEnabled, setTagFilterEnabled] = useState(false);
   const [tagFilterIds, setTagFilterIds] = useState<Set<string>>(new Set());
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updating, setUpdating] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null);
 
   const {
     selectedTaskId,
@@ -689,10 +691,30 @@ function AppInner() {
           </span>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => openUrl(updateInfo.releaseUrl)}
-              className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition-colors"
+              onClick={async () => {
+                if (updating) return;
+                setUpdating(true);
+                try {
+                  await installUpdate((ratio) => setUpdateProgress(ratio));
+                } catch {
+                  // アプリ内更新に失敗した場合は従来どおりリリースページを開く
+                  openUrl(updateInfo.releaseUrl);
+                  setUpdating(false);
+                  setUpdateProgress(null);
+                }
+              }}
+              disabled={updating}
+              className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-[11px] font-medium transition-colors"
             >
-              {lang === "ja" ? "アップデート" : "Update"}
+              {updating
+                ? updateProgress !== null
+                  ? `${Math.round(updateProgress * 100)}%`
+                  : lang === "ja"
+                    ? "更新中..."
+                    : "Updating..."
+                : lang === "ja"
+                  ? "アップデート"
+                  : "Update"}
             </button>
             <button
               onClick={() => setUpdateInfo(null)}
