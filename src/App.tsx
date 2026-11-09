@@ -19,7 +19,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { CloseConfirmModal } from "./components/CloseConfirmModal";
 import { checkForUpdate, installUpdate, UpdateInfo } from "./utils/updater";
-import { isMustTask } from "./utils/project";
+import { isMustTask, todayIso } from "./utils/project";
+import { DailyResultModal } from "./components/DailyResultModal";
+import { computeDailyResult } from "./utils/result";
 
 function AppInner() {
   const init = useStore((s) => s.init);
@@ -42,6 +44,7 @@ function AppInner() {
 
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showResult, setShowResult] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [tagFilterEnabled, setTagFilterEnabled] = useState(false);
   const [tagFilterIds, setTagFilterIds] = useState<Set<string>>(new Set());
@@ -78,6 +81,10 @@ function AppInner() {
   const [focusEndMode, setFocusEndMode] = useState<"ended" | "confirm">("ended");
   const focusMinutesRef = useRef(focusMinutes);
   useEffect(() => { focusMinutesRef.current = focusMinutes; }, [focusMinutes]);
+  // リザルト用フォーカス記録: 現在のタイマー区間の秒数と、セッション累計・モーダル表示中の経過秒数
+  const focusSegmentSecondsRef = useRef(0);
+  const focusSessionElapsedRef = useRef(0);
+  const focusModalElapsedRef = useRef(0);
   useEffect(() => { setFocusMinutes(lastFocusMinutes ?? 25); }, []);
 
   // タイマーカウントダウン
@@ -87,7 +94,9 @@ function AppInner() {
       setFocusTimeLeft((prev) => {
         if (prev <= 1) {
           setTimerActive(false);
-          const elapsed = focusMinutesRef.current * 60;
+          const elapsed = focusSessionElapsedRef.current + focusSegmentSecondsRef.current;
+          focusSessionElapsedRef.current = elapsed;
+          focusModalElapsedRef.current = elapsed;
           setFocusElapsed(elapsed);
           setFocusEndMode("ended");
           setShowFocusEnd(true);
@@ -102,6 +111,9 @@ function AppInner() {
 
   function startFocus() {
     const secs = focusMinutesRef.current * 60;
+    focusSegmentSecondsRef.current = secs;
+    focusSessionElapsedRef.current = 0;
+    focusModalElapsedRef.current = 0;
     setFocusTimeLeft(secs);
     setFocusElapsed(0);
     setTimerActive(true);
@@ -116,6 +128,17 @@ function AppInner() {
   }
 
   function endFocus() {
+    // リザルト用に、モーダルに表示していた経過時間を今日分として記録する
+    if (focusModalElapsedRef.current > 0) {
+      const s = useStore.getState();
+      const key = todayIso();
+      const byDate = { ...(s.settings.focusMinutesByDate ?? {}) };
+      byDate[key] = (byDate[key] ?? 0) + focusModalElapsedRef.current / 60;
+      s.updateSettings({ focusMinutesByDate: byDate });
+    }
+    focusSegmentSecondsRef.current = 0;
+    focusSessionElapsedRef.current = 0;
+    focusModalElapsedRef.current = 0;
     setTimerActive(false);
     setFocusedTaskId(null);
     setFocusPhase("idle");
@@ -125,6 +148,7 @@ function AppInner() {
 
   function extendFocus() {
     const extra = 5 * 60;
+    focusSegmentSecondsRef.current = extra;
     setFocusTimeLeft(extra);
     setShowFocusEnd(false);
     setTimerActive(true);
@@ -329,7 +353,9 @@ function AppInner() {
       if (focusPhase === "running" && !isInput && (e.key === "Enter" || e.key === "Escape")) {
         e.preventDefault();
         setFocusEndMode("confirm");
-        setFocusElapsed(focusMinutes * 60 - focusTimeLeft);
+        const elapsed = focusSessionElapsedRef.current + (focusSegmentSecondsRef.current - focusTimeLeft);
+        focusModalElapsedRef.current = elapsed;
+        setFocusElapsed(elapsed);
         setShowFocusEnd(true);
         return;
       }
@@ -681,7 +707,7 @@ function AppInner() {
 
   return (
     <div className="h-full flex flex-col bg-appbg relative">
-      <Header onOpenSettings={() => setShowSettings(true)} />
+      <Header onOpenSettings={() => setShowSettings(true)} onOpenResult={() => setShowResult(true)} />
       {updateInfo && (
         <div className="px-4 py-2 flex items-center justify-between gap-3 bg-blue-50/80 dark:bg-blue-950/30 border-b border-blue-200/60 dark:border-blue-800/40 text-[12px]">
           <span className="text-blue-700 dark:text-blue-300">
@@ -815,6 +841,17 @@ function AppInner() {
       </div>
       </div>
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      {showResult && (
+        <DailyResultModal
+          result={computeDailyResult(
+            tasks,
+            tags,
+            useStore.getState().settings.focusMinutesByDate?.[todayIso()] ?? 0,
+          )}
+          lang={lang}
+          onClose={() => setShowResult(false)}
+        />
+      )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       {focusPhase === "setup" && (
         <FocusTimerSetup

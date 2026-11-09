@@ -36,6 +36,8 @@ export interface Settings {
   soundEnabled: boolean;
   focusShortcut: string;
   lastFocusMinutes: number;
+  /** 日別フォーカス時間（分）: "YYYY-MM-DD" -> 分。リザルト画面用にこのバージョンから記録 */
+  focusMinutesByDate?: Record<string, number>;
   theme: Theme;
   language: Language;
 }
