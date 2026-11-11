@@ -15,9 +15,10 @@ type CopyTarget = "today" | "all" | "todo";
 
 interface Props {
   onOpenSettings: () => void;
+  onOpenResult: () => void;
 }
 
-export function Header({ onOpenSettings }: Props) {
+export function Header({ onOpenSettings, onOpenResult }: Props) {
   const tasks = useStore((s) => s.tasks);
   const tags = useStore((s) => s.tags);
   const settings = useStore((s) => s.settings);
@@ -78,6 +79,12 @@ export function Header({ onOpenSettings }: Props) {
         {t(lang, "appTitle")}
       </div>
       <div className="flex items-center gap-2">
+        <button
+          onClick={onOpenResult}
+          className="text-[12px] px-3 py-1.5 rounded-lg bg-black/8 text-ink border border-black/10 hover:bg-black/15 dark:bg-white/10 dark:text-white dark:border-transparent dark:hover:bg-white/18 transition-all"
+        >
+          {t(lang, "dailyResult")}
+        </button>
         <div ref={menuRef} className="relative">
           <button
             onClick={() => setShowMenu((v) => !v)}

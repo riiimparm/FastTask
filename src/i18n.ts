@@ -3,6 +3,7 @@ import { Language } from "./types";
 const dict = {
   ja: {
     appTitle: "FastTask",
+    dailyResult: "今日のリザルト",
     copy: "コピー",
     copyToday: "今日の完了",
     copied: "✓ コピーしました",
@@ -89,6 +90,7 @@ const dict = {
   },
   en: {
     appTitle: "FastTask",
+    dailyResult: "Today's Result",
     copy: "Copy",
     copyToday: "Today's Completed",
     copied: "✓ Copied",
