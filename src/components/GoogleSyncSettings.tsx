@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { Language } from "../types";
 
 /** Rust 側 PublicConfig と対。secret / refresh_token は一切含まれない。 */
@@ -149,6 +150,11 @@ export function GoogleSyncSettings({ lang }: { lang: Language }) {
 
   useEffect(() => {
     invoke<GoogleConfig>("google_get_config").then(apply).catch((e) => setErr(String(e)));
+    let unlisten: (() => void) | undefined;
+    listen("external-google-changed", () => {
+      invoke<GoogleConfig>("google_get_config").then(apply).catch((e) => setErr(String(e)));
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
   }, []);
 
   async function patch(p: Record<string, unknown>) {

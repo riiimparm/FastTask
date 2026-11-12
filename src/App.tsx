@@ -8,7 +8,8 @@ import { ShortcutsModal } from "./components/ShortcutsModal";
 import { FocusTimerSetup } from "./components/FocusTimerSetup";
 import { FocusEndModal } from "./components/FocusEndModal";
 import { UiProvider, useUiContext } from "./context/UiContext";
-import { useStore } from "./store";
+import { useStore, applyTheme } from "./store";
+import { mergeExternalData } from "./externalData";
 import { osNotify, osNotifyWithAction, setupFocusTimerActions, setFocusTimerActionCallback } from "./utils/notify";
 import { t } from "./i18n";
 import { buildDfsOrder, getDepth, hasUndoneDescendants } from "./utils/taskTree";
@@ -239,12 +240,28 @@ function AppInner() {
     // ローカルAPI/MCP が data.json を直接書き換えたときの再読み込み
     let unlistenExternal: (() => void) | undefined;
     listen("external-data-changed", async () => {
-      const raw = await invoke<{ tasks?: unknown[]; tags?: unknown[] } | null>("load_data");
-      if (raw) {
-        useStore.setState({
-          tasks: (raw.tasks ?? []) as never,
-          tags: (raw.tags ?? []) as never,
-        });
+      const raw = await invoke<{
+        tasks?: never[];
+        tags?: never[];
+        settings?: Record<string, never>;
+      } | null>("load_data");
+      const prevShortcut = useStore.getState().settings.focusShortcut;
+      const next = mergeExternalData(raw as never);
+      if (!next) return;
+      useStore.setState({
+        tasks: next.tasks,
+        tags: next.tags,
+        settings: next.settings,
+        undoStack: [],
+      });
+      applyTheme(next.settings.theme);
+      document.documentElement.lang = next.settings.language;
+      if (next.settings.focusShortcut !== prevShortcut) {
+        if (next.settings.focusShortcut) {
+          invoke("register_focus_shortcut", { shortcutStr: next.settings.focusShortcut }).catch(() => {});
+        } else {
+          invoke("unregister_focus_shortcut").catch(() => {});
+        }
       }
     }).then((f) => { unlistenExternal = f; });
 

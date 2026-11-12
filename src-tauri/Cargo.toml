@@ -19,8 +19,9 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
-tauri-plugin-process = "2"
-tauri-plugin-updater = "2"
+# 2.4 / 2.13 以降は Tauri 2.12（Rust 1.90）が要る。mise.toml の Rust は 1.88。
+tauri-plugin-process = "=2.3.1"
+tauri-plugin-updater = "=2.12.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tiny_http = "0.12"
@@ -30,3 +31,4 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "for
 url = "2"
 sha2 = "0.10"
 base64 = "0.22"
+fasttask-core = { path = "core" }
