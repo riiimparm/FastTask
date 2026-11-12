@@ -12,7 +12,7 @@ const instructions = [
 ].join("\n");
 
 const server = new McpServer(
-  { name: "fasttask", version: "1.4.1" },
+  { name: "fasttask", version: "1.5.0" },
   { instructions },
 );
 
