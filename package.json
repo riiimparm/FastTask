@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "node --test src/utils/*.test.ts src/windowClose.test.ts src/externalData.test.ts scripts/release-notes.test.cjs mcp/protocol.test.js",
     "tauri": "tauri",
     "release": "pnpm tauri build && bash scripts/patch-dmg.sh"
   },
@@ -15,6 +16,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-fs": "^2.5.1",
@@ -26,6 +28,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "uuid": "^14.0.0",
+    "zod": "^4.6.7",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
