@@ -1,6 +1,6 @@
 [package]
 name = "fasttask-core"
-version = "1.4.1"
+version = "1.5.0"
 edition = "2021"
 description = "FastTask local data API"
 publish = false
