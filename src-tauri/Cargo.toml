@@ -10,10 +10,11 @@ name = "daily_task_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+# tauri 2.12 は tauri-build 2.7 が要る。
+tauri-build = { version = "~2.7.4", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "~2.12.5", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-fs = "2"
