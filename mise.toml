@@ -1,6 +1,6 @@
 [tools]
 node = "24"
-rust = "1.88"
+rust = "1.90"
 
 [env]
 _.path = ["./node_modules/.bin"]
